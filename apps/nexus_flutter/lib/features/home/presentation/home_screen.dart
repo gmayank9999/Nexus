@@ -1,0 +1,320 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus_flutter/features/system_status/application/system_health_provider.dart';
+import 'package:nexus_flutter/features/system_status/domain/system_health.dart';
+
+class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = Theme.of(context).colorScheme;
+    return RefreshIndicator(
+      onRefresh: () => ref.refresh(systemHealthProvider.future),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 96),
+            sliver: SliverList.list(
+              children: [
+                Text(
+                  'NEXUS',
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 8,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Agentic AI Operating System',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 36),
+                const _CommandCard(),
+                const SizedBox(height: 32),
+                const _SectionTitle(
+                  title: 'System status',
+                  subtitle: 'Pull down to run the checks again',
+                ),
+                const SizedBox(height: 14),
+                const _SystemStatusGrid(),
+                const SizedBox(height: 32),
+                const _SectionTitle(
+                  title: 'Active missions',
+                  subtitle: 'Your autonomous workflows will appear here',
+                ),
+                const SizedBox(height: 14),
+                const _EmptyMissionsCard(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommandCard extends StatelessWidget {
+  const _CommandCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainer,
+        border: Border.all(color: colors.primary.withValues(alpha: 0.28)),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colors.primary.withValues(alpha: 0.08),
+            blurRadius: 28,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'What do you want to accomplish?',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          const TextField(
+            minLines: 2,
+            maxLines: 4,
+            decoration: InputDecoration(
+              hintText: 'Prepare me for a Flutter interview in 10 days…',
+              prefixIcon: Padding(
+                padding: EdgeInsets.only(bottom: 28),
+                child: Icon(Icons.auto_awesome_outlined),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              IconButton.filledTonal(
+                onPressed: null,
+                tooltip: 'Voice arrives in a later phase',
+                icon: const Icon(Icons.mic_none_rounded),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                onPressed: null,
+                tooltip: 'Documents arrive in a later phase',
+                icon: const Icon(Icons.attach_file_rounded),
+              ),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: null,
+                icon: const Icon(Icons.arrow_forward_rounded),
+                label: const Text('Start mission'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SystemStatusGrid extends ConsumerWidget {
+  const _SystemStatusGrid();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final health = ref.watch(systemHealthProvider);
+    return health.when(
+      loading: () => const _StatusLayout(
+        cards: [
+          _StatusCard.loading('Agent runtime'),
+          _StatusCard.loading('PostgreSQL'),
+          _StatusCard.loading('Redis'),
+        ],
+      ),
+      error: (_, _) => const _StatusLayout(
+        cards: [
+          _StatusCard.offline('Agent runtime'),
+          _StatusCard.offline('PostgreSQL'),
+          _StatusCard.offline('Redis'),
+        ],
+      ),
+      data: (value) => _StatusLayout(
+        cards: [
+          _StatusCard(
+            label: 'Agent runtime',
+            state: value.api,
+            detail: 'API v${value.version}',
+          ),
+          _StatusCard(label: 'PostgreSQL', state: value.postgres),
+          _StatusCard(label: 'Redis', state: value.redis),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusLayout extends StatelessWidget {
+  const _StatusLayout({required this.cards});
+
+  final List<Widget> cards;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 680) {
+          return Column(
+            children: cards
+                .map(
+                  (card) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: card,
+                  ),
+                )
+                .toList(),
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: cards
+              .map(
+                (card) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: card,
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _StatusCard extends StatelessWidget {
+  const _StatusCard({
+    required this.label,
+    required this.state,
+    this.detail,
+    this.isLoading = false,
+  });
+
+  const _StatusCard.loading(String label)
+    : this(label: label, state: ServiceState.offline, isLoading: true);
+
+  const _StatusCard.offline(String label)
+    : this(label: label, state: ServiceState.offline);
+
+  final String label;
+  final ServiceState state;
+  final String? detail;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOnline = state == ServiceState.online;
+    final statusColor = isLoading
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : isOnline
+        ? const Color(0xFF54E6A5)
+        : Theme.of(context).colorScheme.error;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: statusColor.withValues(alpha: 0.45),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 2),
+                Text(
+                  isLoading
+                      ? 'Checking…'
+                      : detail ?? (isOnline ? 'Online' : 'Unavailable'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: statusColor),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyMissionsCard extends StatelessWidget {
+  const _EmptyMissionsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Column(
+        children: [
+          Icon(Icons.route_outlined, size: 36),
+          SizedBox(height: 12),
+          Text('No active missions'),
+        ],
+      ),
+    );
+  }
+}
