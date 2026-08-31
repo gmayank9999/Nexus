@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexus_flutter/features/missions/application/mission_controller.dart';
+import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
 import 'package:nexus_flutter/features/system_status/application/system_health_provider.dart';
 import 'package:nexus_flutter/features/system_status/domain/system_health.dart';
 
@@ -37,18 +39,18 @@ class HomeScreen extends ConsumerWidget {
                 const _CommandCard(),
                 const SizedBox(height: 32),
                 const _SectionTitle(
+                  title: 'Active missions',
+                  subtitle: 'Your autonomous workflows will appear here',
+                ),
+                const SizedBox(height: 14),
+                const _MissionResult(),
+                const SizedBox(height: 32),
+                const _SectionTitle(
                   title: 'System status',
                   subtitle: 'Pull down to run the checks again',
                 ),
                 const SizedBox(height: 14),
                 const _SystemStatusGrid(),
-                const SizedBox(height: 32),
-                const _SectionTitle(
-                  title: 'Active missions',
-                  subtitle: 'Your autonomous workflows will appear here',
-                ),
-                const SizedBox(height: 14),
-                const _EmptyMissionsCard(),
               ],
             ),
           ),
@@ -58,12 +60,32 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _CommandCard extends StatelessWidget {
+class _CommandCard extends ConsumerStatefulWidget {
   const _CommandCard();
+
+  @override
+  ConsumerState<_CommandCard> createState() => _CommandCardState();
+}
+
+class _CommandCardState extends ConsumerState<_CommandCard> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startMission() async {
+    await ref.read(missionControllerProvider.notifier).start(_controller.text);
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final mission = ref.watch(missionControllerProvider);
+    final isLoading = mission?.isLoading == true;
+    final canSubmit = _controller.text.trim().isNotEmpty && !isLoading;
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -85,10 +107,13 @@ class _CommandCard extends StatelessWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
-          const TextField(
+          TextField(
+            controller: _controller,
             minLines: 2,
             maxLines: 4,
-            decoration: InputDecoration(
+            onChanged: (_) => setState(() {}),
+            onSubmitted: canSubmit ? (_) => _startMission() : null,
+            decoration: const InputDecoration(
               hintText: 'Prepare me for a Flutter interview in 10 days…',
               prefixIcon: Padding(
                 padding: EdgeInsets.only(bottom: 28),
@@ -112,12 +137,152 @@ class _CommandCard extends StatelessWidget {
               ),
               const Spacer(),
               FilledButton.icon(
-                onPressed: null,
-                icon: const Icon(Icons.arrow_forward_rounded),
-                label: const Text('Start mission'),
+                onPressed: canSubmit ? _startMission : null,
+                icon: isLoading
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.arrow_forward_rounded),
+                label: Text(isLoading ? 'Working…' : 'Start mission'),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MissionResult extends ConsumerWidget {
+  const _MissionResult();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(missionControllerProvider);
+    if (state == null) {
+      return const _EmptyMissionsCard();
+    }
+    return state.when(
+      loading: () => const _MissionStatusCard.loading(),
+      error: (error, _) => _MissionStatusCard.error(error.toString()),
+      data: (mission) => _MissionStatusCard.mission(mission),
+    );
+  }
+}
+
+class _MissionStatusCard extends StatelessWidget {
+  const _MissionStatusCard._({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    this.steps = const [],
+  });
+
+  const _MissionStatusCard.loading()
+    : this._(
+        title: 'Agent is working',
+        subtitle: 'Planning and executing the mission…',
+        icon: Icons.auto_awesome,
+        color: const Color(0xFF42D6FF),
+      );
+
+  factory _MissionStatusCard.error(String message) {
+    return _MissionStatusCard._(
+      title: 'Mission request failed',
+      subtitle: message,
+      icon: Icons.error_outline,
+      color: const Color(0xFFFF6B7A),
+    );
+  }
+
+  factory _MissionStatusCard.mission(MissionRun mission) {
+    final completed = mission.status == MissionRunStatus.completed;
+    final waiting = mission.status == MissionRunStatus.waitingForApproval;
+    final color = completed
+        ? const Color(0xFF54E6A5)
+        : waiting
+        ? const Color(0xFFFFC857)
+        : const Color(0xFFFF6B7A);
+    return _MissionStatusCard._(
+      title: completed
+          ? 'Mission completed'
+          : waiting
+          ? 'Approval required'
+          : 'Mission ${mission.status.name}',
+      subtitle:
+          mission.finalResponse ??
+          mission.errorMessage ??
+          'Review the agent trace.',
+      icon: completed
+          ? Icons.check_circle_outline
+          : waiting
+          ? Icons.approval_outlined
+          : Icons.error_outline,
+      color: color,
+      steps: mission.steps,
+    );
+  }
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final List<MissionStep> steps;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (steps.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            for (final step in steps)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_rounded, size: 18, color: color),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(step.title)),
+                    Text(
+                      step.tool,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ],
       ),
     );
