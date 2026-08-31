@@ -1,4 +1,6 @@
+from collections.abc import Awaitable
 from dataclasses import dataclass
+from typing import cast
 
 from redis.asyncio import Redis
 from sqlalchemy import text
@@ -27,7 +29,7 @@ class AppResources:
                 await connection.execute(text("SELECT 1"))
 
         async def check_redis() -> None:
-            await redis.ping()
+            await cast(Awaitable[bool], redis.ping())
 
         readiness = ReadinessService({"postgres": check_database, "redis": check_redis})
         return cls(database=database, redis=redis, readiness=readiness)

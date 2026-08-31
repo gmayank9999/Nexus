@@ -1,8 +1,9 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 from app.api.router import api_router
 from app.api.schemas.health import ReadinessResponse
@@ -21,9 +22,10 @@ class StubReadinessService:
         )
 
 
-def test_health_reports_service_metadata() -> None:
-    with TestClient(_test_app(StubReadinessService("ready"))) as client:
-        response = client.get("/health")
+@pytest.mark.asyncio
+async def test_health_reports_service_metadata() -> None:
+    async with _client(StubReadinessService("ready")) as client:
+        response = await client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -33,17 +35,19 @@ def test_health_reports_service_metadata() -> None:
     }
 
 
-def test_ready_returns_200_when_dependencies_are_available() -> None:
-    with TestClient(_test_app(StubReadinessService("ready"))) as client:
-        response = client.get("/ready")
+@pytest.mark.asyncio
+async def test_ready_returns_200_when_dependencies_are_available() -> None:
+    async with _client(StubReadinessService("ready")) as client:
+        response = await client.get("/ready")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
 
 
-def test_ready_returns_503_when_a_dependency_is_unavailable() -> None:
-    with TestClient(_test_app(StubReadinessService("not_ready"))) as client:
-        response = client.get("/ready")
+@pytest.mark.asyncio
+async def test_ready_returns_503_when_a_dependency_is_unavailable() -> None:
+    async with _client(StubReadinessService("not_ready")) as client:
+        response = await client.get("/ready")
 
     assert response.status_code == 503
     assert response.json()["status"] == "not_ready"
@@ -58,3 +62,11 @@ def _test_app(readiness: StubReadinessService) -> FastAPI:
     app.include_router(api_router)
     app.dependency_overrides[get_readiness_service] = lambda: readiness
     return app
+
+
+@asynccontextmanager
+async def _client(readiness: StubReadinessService) -> AsyncIterator[AsyncClient]:
+    app = _test_app(readiness)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
