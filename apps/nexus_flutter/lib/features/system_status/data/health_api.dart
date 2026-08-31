@@ -1,6 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nexus_flutter/core/networking/api_client.dart';
 import 'package:nexus_flutter/features/system_status/domain/system_health.dart';
 
 abstract interface class HealthApi {
@@ -30,7 +28,3 @@ class DioHealthApi implements HealthApi {
     );
   }
 }
-
-final healthApiProvider = Provider<HealthApi>(
-  (ref) => DioHealthApi(ref.watch(dioProvider)),
-);
