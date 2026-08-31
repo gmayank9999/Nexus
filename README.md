@@ -7,9 +7,9 @@ a custom Python runtime. It is designed to turn natural-language goals into
 observable, tool-using, memory-aware workflows with human approval at sensitive
 boundaries.
 
-Phase 0 establishes the production-shaped monorepo, a cross-platform Flutter
-client, a FastAPI service, infrastructure health checks, Docker Compose, and CI.
-The agent runtime itself begins in Phase 1.
+Phase 1 adds the first working agent loop to the production-shaped monorepo. A
+goal entered in Flutter is planned, executed through a permissioned tool, and
+returned with a typed status and an ordered trace.
 
 ## Why we did not build a chatbot
 
@@ -28,9 +28,9 @@ to the NEXUS backend.
 
 ## Current interface
 
-The Phase 0 home screen includes the mission command surface, navigation shell,
-and live status cards for the API, PostgreSQL, and Redis. Screenshots and the
-demo recording will be added after the interactive mission flow lands.
+The home screen includes a working mission command surface, completed or failed
+mission state, plan steps, navigation shell, and live status cards for the API,
+PostgreSQL, and Redis.
 
 ## Architecture
 
@@ -48,9 +48,9 @@ flowchart LR
     P -. configuration .-> X[OpenAI-compatible endpoint]
 ```
 
-The provider and agent boxes describe the target boundary. Phase 0 implements
-the client/API/infrastructure path; Phase 1 fills in the custom runtime and
-provider contracts. See [the architecture document](docs/architecture.md).
+The provider and agent boundaries are implemented without an agent framework.
+See [the architecture document](docs/architecture.md),
+[agent runtime](docs/agent-runtime.md), and [tool system](docs/tool-system.md).
 
 ## Repository layout
 
@@ -96,6 +96,14 @@ profile when required, choose a model explicitly, pull it yourself, and set
 docker compose --profile local-model up --build
 ```
 
+For a deterministic demo without a model download, select the mock provider
+before starting the stack:
+
+```powershell
+$env:NEXUS_LLM_PROVIDER="mock"
+docker compose up --build
+```
+
 Verify liveness and readiness:
 
 ```bash
@@ -105,6 +113,16 @@ curl http://localhost:8000/ready
 
 `/health` proves the API process is alive. `/ready` returns HTTP 503 until both
 PostgreSQL and Redis are reachable.
+
+Create and inspect a run through the REST API:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/runs \
+  -H "Content-Type: application/json" \
+  -d '{"goal":"Create a task to learn Flutter","user_id":"local"}'
+curl http://localhost:8000/api/v1/runs?user_id=local
+curl http://localhost:8000/api/v1/tasks?user_id=local
+```
 
 ## Run the backend locally
 
@@ -147,7 +165,9 @@ Important values include:
 - `DATABASE_URL` and `REDIS_URL` for infrastructure;
 - `NEXUS_LLM_PROVIDER` for provider selection;
 - `NEXUS_OLLAMA_BASE_URL` and `NEXUS_OLLAMA_MODEL` for local inference;
-- `NEXUS_MAX_AGENT_ITERATIONS` for the future bounded loop;
+- `NEXUS_LLM_BASE_URL`, `NEXUS_LLM_MODEL`, and `NEXUS_LLM_API_KEY` for an
+  OpenAI-compatible endpoint;
+- `NEXUS_MAX_AGENT_ITERATIONS` for the bounded loop;
 - disabled-by-default feature gates for web search, voice, and code execution.
 
 Do not commit `.env`. It is ignored intentionally.
@@ -184,7 +204,7 @@ Python virtual environment has been installed.
 - Dangerous capabilities are disabled by default.
 - Liveness does not expose dependency exception messages.
 - Readiness reports only sanitized exception types.
-- Future model output will be validated before it can select registered tools.
+- Model plans and actions are schema-validated before they can select tools.
 - Arbitrary shell, Python, SQL, deletion, and network execution are out of scope
   for the MVP.
 
@@ -192,7 +212,7 @@ See [security architecture](docs/architecture.md#security-boundaries).
 
 ## Engineering decisions
 
-- The core loop will be implemented directly rather than hidden in an agent
+- The core loop is implemented directly rather than hidden in an agent
   framework.
 - REST handles commands and snapshots; WebSockets will carry ordered events.
 - FastAPI dependencies keep infrastructure replaceable in tests.
@@ -202,8 +222,8 @@ See [security architecture](docs/architecture.md#security-boundaries).
 
 ## Roadmap
 
-- **Phase 0 — Foundation:** Flutter, FastAPI, Compose, health, CI (current)
-- **Phase 1 — Agent engine:** providers, planner, state machine, safe tools
+- **Phase 0 — Foundation:** Flutter, FastAPI, Compose, health, CI
+- **Phase 1 — Agent engine:** providers, planner, state machine, safe tools (current)
 - **Phase 2 — Streaming UI:** events, WebSocket recovery, approval cards
 - **Phase 3 — Documents/RAG:** ingestion, retrieval, citations
 - **Phase 4 — Memory:** policy, retrieval, user controls
