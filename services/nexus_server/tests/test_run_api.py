@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -15,17 +16,23 @@ async def test_run_api_executes_goal_and_exposes_created_task() -> None:
             "/api/v1/runs",
             json={"goal": "Create a task to learn Flutter architecture"},
         )
+        run_id = response.json()["id"]
+        run = await wait_for_terminal_run(client, run_id)
         tasks = await client.get("/api/v1/tasks")
         listed_runs = await client.get("/api/v1/runs")
+        events = await client.get(f"/api/v1/runs/{run_id}/events?after=2")
 
     assert response.status_code == 201
-    run = response.json()
+    assert response.json()["status"] == "created"
     assert run["status"] == "completed"
     assert run["plan"]["steps"][0]["tool"] == "create_task"
     assert run["trace"][-1]["type"] == "run_completed"
     assert tasks.status_code == 200
     assert tasks.json()[0]["title"] == "Learn flutter architecture"
     assert listed_runs.json()[0]["id"] == run["id"]
+    assert events.status_code == 200
+    assert events.json()[0]["sequence"] == 3
+    assert events.json()[-1]["type"] == "run_completed"
 
 
 @pytest.mark.asyncio
@@ -35,6 +42,16 @@ async def test_missing_run_returns_structured_404() -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "RUN_NOT_FOUND"
+
+
+async def wait_for_terminal_run(client: AsyncClient, run_id: str) -> dict[str, object]:
+    for _ in range(100):
+        response = await client.get(f"/api/v1/runs/{run_id}")
+        run = response.json()
+        if run["status"] in {"completed", "failed", "cancelled"}:
+            return run
+        await asyncio.sleep(0.01)
+    raise AssertionError("Agent run did not reach a terminal state")
 
 
 @asynccontextmanager
