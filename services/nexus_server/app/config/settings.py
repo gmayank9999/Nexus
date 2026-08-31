@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     nexus_llm_provider: str = "ollama"
     nexus_ollama_base_url: str = "http://localhost:11434"
     nexus_ollama_model: str = ""
+    nexus_llm_base_url: str = ""
+    nexus_llm_api_key: SecretStr | None = None
+    nexus_llm_model: str = ""
     nexus_max_agent_iterations: int = Field(default=12, ge=1, le=100)
 
     nexus_enable_web_search: bool = False
