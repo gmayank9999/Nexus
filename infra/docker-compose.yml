@@ -1,0 +1,88 @@
+name: nexus
+
+services:
+  nexus-server:
+    build:
+      context: ../services/nexus_server
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:3000","http://localhost:8000"]}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://nexus:nexus@postgres:5432/nexus}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      NEXUS_LLM_PROVIDER: ${NEXUS_LLM_PROVIDER:-ollama}
+      NEXUS_OLLAMA_BASE_URL: ${NEXUS_OLLAMA_BASE_URL:-http://ollama:11434}
+      NEXUS_OLLAMA_MODEL: ${NEXUS_OLLAMA_MODEL:-}
+      NEXUS_MAX_AGENT_ITERATIONS: ${NEXUS_MAX_AGENT_ITERATIONS:-12}
+      NEXUS_ENABLE_WEB_SEARCH: ${NEXUS_ENABLE_WEB_SEARCH:-false}
+      NEXUS_ENABLE_VOICE: ${NEXUS_ENABLE_VOICE:-false}
+      NEXUS_ENABLE_CODE_EXECUTION: ${NEXUS_ENABLE_CODE_EXECUTION:-false}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nexus}
+      POSTGRES_USER: ${POSTGRES_USER:-nexus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexus}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  ollama-data:
+
