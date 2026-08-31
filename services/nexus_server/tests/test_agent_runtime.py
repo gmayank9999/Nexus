@@ -6,6 +6,8 @@ from app.agent.planner import Planner
 from app.agent.repository import InMemoryRunRepository
 from app.agent.runtime import AgentRuntime
 from app.agent.state_machine import AgentStateMachine, StateTransitionError
+from app.events.bus import EventBus
+from app.events.repository import InMemoryEventRepository
 from app.providers.base import LLMResponse
 from app.providers.mock import MockProvider
 from app.storage.task_repository import InMemoryTaskRepository
@@ -30,6 +32,7 @@ def build_runtime(
         Executor(model, tools),
         tools,
         InMemoryRunRepository(),
+        EventBus(InMemoryEventRepository()),
     )
     return runtime, tasks
 
@@ -74,6 +77,61 @@ async def test_approval_step_pauses_before_tool_execution() -> None:
     assert run.status == AgentStatus.WAITING_FOR_APPROVAL
     assert await tasks.list_for_user("user_test") == []
     assert run.trace[-1].type == "approval_required"
+
+
+@pytest.mark.asyncio
+async def test_approved_step_resumes_and_completes() -> None:
+    plan = {
+        "goal": "External action",
+        "steps": [
+            {
+                "id": "step_1",
+                "title": "Create task",
+                "description": "Create an approved task",
+                "tool": "create_task",
+                "requires_approval": True,
+            }
+        ],
+    }
+    decision = {
+        "action": "tool_call",
+        "tool": "create_task",
+        "arguments": {"title": "Approved task"},
+    }
+    runtime, tasks = build_runtime(
+        MockProvider(
+            [
+                LLMResponse(structured_output=plan),
+                LLMResponse(structured_output=decision),
+            ]
+        )
+    )
+
+    waiting = await runtime.start(
+        "External action",
+        user_id="user_test",
+        max_iterations=12,
+    )
+    approved = await runtime.approve(waiting.id)
+    completed = await runtime.execute(approved)
+
+    assert completed.status == AgentStatus.COMPLETED
+    assert (await tasks.list_for_user("user_test"))[0].title == "Approved task"
+    approval = next(
+        event for event in completed.trace if event.type == "approval_received"
+    )
+    assert approval.payload["approved"] is True
+
+
+@pytest.mark.asyncio
+async def test_created_run_can_be_cancelled() -> None:
+    runtime, _ = build_runtime()
+    run = await runtime.create("Cancel me", user_id="user_test", max_iterations=12)
+
+    cancelled = await runtime.cancel(run.id)
+
+    assert cancelled.status == AgentStatus.CANCELLED
+    assert cancelled.trace[-1].type == "run_cancelled"
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import cast
@@ -8,13 +9,21 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from app.agent.executor import Executor
+from app.agent.models import AgentRun
 from app.agent.planner import Planner
-from app.agent.repository import InMemoryRunRepository
+from app.agent.repository import InMemoryRunRepository, RunRepository, SqlRunRepository
 from app.agent.runtime import AgentRuntime
 from app.config.settings import Settings
+from app.events.bus import EventBus
+from app.events.repository import (
+    EventRepository,
+    InMemoryEventRepository,
+    SqlEventRepository,
+)
 from app.health import ReadinessService
 from app.providers.base import LLMProvider
 from app.providers.factory import create_provider
+from app.storage.tables import initialize_schema
 from app.storage.task_repository import InMemoryTaskRepository
 from app.tools.calculator import CalculatorTool
 from app.tools.current_time import CurrentTimeTool
@@ -30,10 +39,13 @@ class AppResources:
     http_client: httpx.AsyncClient
     provider: LLMProvider
     task_repository: InMemoryTaskRepository
-    run_repository: InMemoryRunRepository
+    run_repository: RunRepository
+    event_repository: EventRepository
+    event_bus: EventBus
     tool_registry: ToolRegistry
     agent_runtime: AgentRuntime
     readiness: ReadinessService
+    background_tasks: set[asyncio.Task[AgentRun]]
 
     @classmethod
     def create(cls, settings: Settings) -> "AppResources":
@@ -45,7 +57,13 @@ class AppResources:
         http_client = httpx.AsyncClient()
         provider = create_provider(settings, http_client)
         task_repository = InMemoryTaskRepository()
-        run_repository = InMemoryRunRepository()
+        if settings.app_env == "test":
+            run_repository: RunRepository = InMemoryRunRepository()
+            event_repository: EventRepository = InMemoryEventRepository()
+        else:
+            run_repository = SqlRunRepository(database)
+            event_repository = SqlEventRepository(database)
+        event_bus = EventBus(event_repository)
         tool_registry = ToolRegistry()
         tool_registry.register(CalculatorTool())
         tool_registry.register(CurrentTimeTool())
@@ -56,6 +74,7 @@ class AppResources:
             Executor(provider, tool_registry),
             tool_registry,
             run_repository,
+            event_bus,
         )
 
         async def check_database() -> None:
@@ -74,12 +93,28 @@ class AppResources:
             provider=provider,
             task_repository=task_repository,
             run_repository=run_repository,
+            event_repository=event_repository,
+            event_bus=event_bus,
             tool_registry=tool_registry,
             agent_runtime=agent_runtime,
             readiness=readiness,
+            background_tasks=set(),
         )
 
+    async def initialize(self) -> None:
+        if self.settings.app_env != "test":
+            await initialize_schema(self.database)
+
+    def run_in_background(self, run: AgentRun) -> None:
+        task = asyncio.create_task(self.agent_runtime.execute(run))
+        self.background_tasks.add(task)
+        task.add_done_callback(self.background_tasks.discard)
+
     async def close(self) -> None:
+        for task in self.background_tasks:
+            task.cancel()
+        if self.background_tasks:
+            await asyncio.gather(*self.background_tasks, return_exceptions=True)
         await self.http_client.aclose()
         await self.redis.aclose()
         await self.database.dispose()

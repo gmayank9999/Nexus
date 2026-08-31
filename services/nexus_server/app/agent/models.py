@@ -4,6 +4,8 @@ from typing import Any, Self
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.events.models import AgentEvent
+
 
 class AgentStatus(StrEnum):
     CREATED = "created"
@@ -68,13 +70,6 @@ class AgentContext(BaseModel):
     observations: list[Observation] = Field(default_factory=list)
 
 
-class TraceEntry(BaseModel):
-    sequence: int = Field(ge=1)
-    type: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    payload: dict[str, Any] = Field(default_factory=dict)
-
-
 class RunError(BaseModel):
     code: str
     message: str
@@ -93,7 +88,7 @@ class AgentRun(BaseModel):
     max_iterations: int = Field(default=12, ge=1, le=100)
     final_response: str | None = None
     error: RunError | None = None
-    trace: list[TraceEntry] = Field(default_factory=list)
+    trace: list[AgentEvent] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
