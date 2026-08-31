@@ -1,0 +1,40 @@
+# Local implementation notes
+NEXUS_IMPLEMENTATION_PLAN.md
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Flutter and Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+coverage/
+**/generated_plugin_registrant.dart
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Local infrastructure data
+.docker-data/
+
