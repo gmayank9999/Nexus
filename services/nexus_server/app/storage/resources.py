@@ -14,6 +14,14 @@ from app.agent.planner import Planner
 from app.agent.repository import InMemoryRunRepository, RunRepository, SqlRunRepository
 from app.agent.runtime import AgentRuntime
 from app.config.settings import Settings
+from app.documents.embeddings import LocalEmbeddingProvider
+from app.documents.indexer import DocumentIndexer
+from app.documents.models import Document
+from app.documents.repository import (
+    DocumentRepository,
+    InMemoryDocumentRepository,
+    SqlDocumentRepository,
+)
 from app.events.bus import EventBus
 from app.events.repository import (
     EventRepository,
@@ -23,11 +31,14 @@ from app.events.repository import (
 from app.health import ReadinessService
 from app.providers.base import LLMProvider
 from app.providers.factory import create_provider
+from app.storage.doc_tables import initialize_doc_schema
 from app.storage.tables import initialize_schema
 from app.storage.task_repository import InMemoryTaskRepository
 from app.tools.calculator import CalculatorTool
 from app.tools.current_time import CurrentTimeTool
+from app.tools.read_document import ReadDocumentTool
 from app.tools.registry import ToolRegistry
+from app.tools.search_files import SearchFilesTool
 from app.tools.tasks import CreateTaskTool, ListTasksTool
 
 
@@ -46,6 +57,10 @@ class AppResources:
     agent_runtime: AgentRuntime
     readiness: ReadinessService
     background_tasks: set[asyncio.Task[AgentRun]]
+    doc_repository: DocumentRepository
+    embedder: LocalEmbeddingProvider
+    doc_indexer: DocumentIndexer
+    indexing_tasks: set[asyncio.Task[None]]
 
     @classmethod
     def create(cls, settings: Settings) -> "AppResources":
@@ -60,15 +75,21 @@ class AppResources:
         if settings.app_env == "test":
             run_repository: RunRepository = InMemoryRunRepository()
             event_repository: EventRepository = InMemoryEventRepository()
+            doc_repository: DocumentRepository = InMemoryDocumentRepository()
         else:
             run_repository = SqlRunRepository(database)
             event_repository = SqlEventRepository(database)
+            doc_repository = SqlDocumentRepository(database)
         event_bus = EventBus(event_repository)
+        embedder = LocalEmbeddingProvider()
+        doc_indexer = DocumentIndexer(doc_repository, embedder)
         tool_registry = ToolRegistry()
         tool_registry.register(CalculatorTool())
         tool_registry.register(CurrentTimeTool())
         tool_registry.register(CreateTaskTool(task_repository))
         tool_registry.register(ListTasksTool(task_repository))
+        tool_registry.register(SearchFilesTool(doc_repository, embedder))
+        tool_registry.register(ReadDocumentTool(doc_repository))
         agent_runtime = AgentRuntime(
             Planner(provider, tool_registry),
             Executor(provider, tool_registry),
@@ -99,22 +120,39 @@ class AppResources:
             agent_runtime=agent_runtime,
             readiness=readiness,
             background_tasks=set(),
+            doc_repository=doc_repository,
+            embedder=embedder,
+            doc_indexer=doc_indexer,
+            indexing_tasks=set(),
         )
 
     async def initialize(self) -> None:
         if self.settings.app_env != "test":
             await initialize_schema(self.database)
+            await initialize_doc_schema(self.database)
 
     def run_in_background(self, run: AgentRun) -> None:
         task = asyncio.create_task(self.agent_runtime.execute(run))
         self.background_tasks.add(task)
         task.add_done_callback(self.background_tasks.discard)
 
+    def run_indexing_in_background(self, doc: Document, content: bytes) -> None:
+        async def _index() -> None:
+            await self.doc_indexer.index(doc, content)
+
+        task = asyncio.create_task(_index())
+        self.indexing_tasks.add(task)
+        task.add_done_callback(self.indexing_tasks.discard)
+
     async def close(self) -> None:
         for task in self.background_tasks:
             task.cancel()
         if self.background_tasks:
             await asyncio.gather(*self.background_tasks, return_exceptions=True)
+        for task in self.indexing_tasks:
+            task.cancel()
+        if self.indexing_tasks:
+            await asyncio.gather(*self.indexing_tasks, return_exceptions=True)
         await self.http_client.aclose()
         await self.redis.aclose()
         await self.database.dispose()

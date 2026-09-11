@@ -13,6 +13,9 @@ dependencies = [
   "fastapi>=0.116,<1",
   "httpx>=0.28,<1",
   "pydantic-settings>=2.10,<3",
+  "python-multipart>=0.0.9,<1",
+  "pypdf>=4,<6",
+  "python-docx>=1,<2",
   "redis>=6,<8",
   "sqlalchemy[asyncio]>=2.0.41,<3",
   "tzdata>=2025.2; platform_system == 'Windows'",
@@ -25,6 +28,10 @@ dev = [
   "pytest>=8.4,<10",
   "pytest-asyncio>=1.1,<2",
   "ruff>=0.12,<1",
+]
+rag = [
+  "sentence-transformers>=3,<4",
+  "numpy>=2,<3",
 ]
 
 [tool.setuptools.packages.find]
@@ -51,5 +58,5 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["redis.*"]
+module = ["redis.*", "pypdf.*", "PyPDF2.*", "docx.*", "sentence_transformers.*"]
 ignore_missing_imports = true
