@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_flutter/features/home/presentation/home_screen.dart';
 import 'package:nexus_flutter/features/missions/application/mission_controller.dart';
 import 'package:nexus_flutter/features/missions/data/mission_api.dart';
+import 'package:nexus_flutter/features/missions/domain/mission_event.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
 import 'package:nexus_flutter/features/system_status/application/system_health_provider.dart';
 import 'package:nexus_flutter/features/system_status/domain/system_health.dart';
@@ -93,4 +94,18 @@ class _FakeMissionApi implements MissionApi {
       finalResponse: 'Created task: Learn Flutter.',
     );
   }
+
+  @override
+  Stream<MissionEvent> watchMission(String runId, {int after = 0}) {
+    return const Stream.empty();
+  }
+
+  @override
+  Future<MissionRun> approve(String runId) => throw UnimplementedError();
+
+  @override
+  Future<MissionRun> cancel(String runId) => throw UnimplementedError();
+
+  @override
+  Future<MissionRun> reject(String runId) => throw UnimplementedError();
 }

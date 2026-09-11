@@ -1,3 +1,5 @@
+import 'package:nexus_flutter/features/missions/domain/mission_event.dart';
+
 enum MissionRunStatus {
   created,
   planning,
@@ -26,17 +28,26 @@ enum MissionRunStatus {
 }
 
 class MissionStep {
-  const MissionStep({required this.title, required this.tool});
+  const MissionStep({
+    required this.title,
+    required this.tool,
+    this.description = '',
+    this.requiresApproval = false,
+  });
 
   factory MissionStep.fromJson(Map<String, dynamic> json) {
     return MissionStep(
       title: json['title'] as String? ?? 'Untitled step',
       tool: json['tool'] as String? ?? 'unknown',
+      description: json['description'] as String? ?? '',
+      requiresApproval: json['requires_approval'] as bool? ?? false,
     );
   }
 
   final String title;
   final String tool;
+  final String description;
+  final bool requiresApproval;
 }
 
 class MissionRun {
@@ -46,6 +57,9 @@ class MissionRun {
     required this.status,
     required this.steps,
     required this.traceCount,
+    this.currentStep = 0,
+    this.iteration = 0,
+    this.maxIterations = 12,
     this.finalResponse,
     this.errorMessage,
   });
@@ -67,6 +81,9 @@ class MissionRun {
       status: MissionRunStatus.fromJson(json['status'] as String),
       steps: steps,
       traceCount: trace is List<dynamic> ? trace.length : 0,
+      currentStep: json['current_step'] as int? ?? 0,
+      iteration: json['iteration'] as int? ?? 0,
+      maxIterations: json['max_iterations'] as int? ?? 12,
       finalResponse: json['final_response'] as String?,
       errorMessage: error is Map<String, dynamic>
           ? error['message'] as String?
@@ -79,6 +96,78 @@ class MissionRun {
   final MissionRunStatus status;
   final List<MissionStep> steps;
   final int traceCount;
+  final int currentStep;
+  final int iteration;
+  final int maxIterations;
   final String? finalResponse;
   final String? errorMessage;
+
+  MissionRun copyWith({
+    MissionRunStatus? status,
+    List<MissionStep>? steps,
+    int? traceCount,
+    int? currentStep,
+    int? iteration,
+    String? finalResponse,
+    String? errorMessage,
+  }) {
+    return MissionRun(
+      id: id,
+      goal: goal,
+      status: status ?? this.status,
+      steps: steps ?? this.steps,
+      traceCount: traceCount ?? this.traceCount,
+      currentStep: currentStep ?? this.currentStep,
+      iteration: iteration ?? this.iteration,
+      maxIterations: maxIterations,
+      finalResponse: finalResponse ?? this.finalResponse,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
+
+  MissionRun applyEvent(MissionEvent event) {
+    var nextStatus = status;
+    var nextSteps = steps;
+    var nextCurrentStep = currentStep;
+    var nextFinalResponse = finalResponse;
+    var nextErrorMessage = errorMessage;
+
+    if (event.type == 'status_changed') {
+      final value = event.payload['to'];
+      if (value is String) {
+        nextStatus = MissionRunStatus.fromJson(value);
+      }
+    } else if (event.type == 'plan_created') {
+      final plan = event.payload['plan'];
+      final values = plan is Map ? plan['steps'] : null;
+      if (values is List<dynamic>) {
+        nextSteps = values
+            .whereType<Map>()
+            .map(
+              (value) => MissionStep.fromJson(Map<String, dynamic>.from(value)),
+            )
+            .toList(growable: false);
+      }
+      nextCurrentStep = 0;
+    } else if (event.type == 'tool_completed') {
+      nextCurrentStep += 1;
+    } else if (event.type == 'run_completed') {
+      nextStatus = MissionRunStatus.completed;
+      nextFinalResponse = event.payload['response'] as String?;
+    } else if (event.type == 'run_failed') {
+      nextStatus = MissionRunStatus.failed;
+      nextErrorMessage = event.payload['message'] as String?;
+    } else if (event.type == 'run_cancelled') {
+      nextStatus = MissionRunStatus.cancelled;
+    }
+
+    return copyWith(
+      status: nextStatus,
+      steps: nextSteps,
+      traceCount: event.sequence,
+      currentStep: nextCurrentStep,
+      finalResponse: nextFinalResponse,
+      errorMessage: nextErrorMessage,
+    );
+  }
 }

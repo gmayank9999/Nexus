@@ -83,7 +83,7 @@ class _CommandCardState extends ConsumerState<_CommandCard> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final mission = ref.watch(missionControllerProvider);
+    final mission = ref.watch(missionControllerProvider).run;
     final isLoading = mission?.isLoading == true;
     final canSubmit = _controller.text.trim().isNotEmpty && !isLoading;
     return Container(
@@ -160,10 +160,11 @@ class _MissionResult extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(missionControllerProvider);
-    if (state == null) {
+    final run = state.run;
+    if (run == null) {
       return const _EmptyMissionsCard();
     }
-    return state.when(
+    return run.when(
       loading: () => const _MissionStatusCard.loading(),
       error: (error, _) => _MissionStatusCard.error(error.toString()),
       data: (mission) => _MissionStatusCard.mission(mission),
@@ -200,17 +201,25 @@ class _MissionStatusCard extends StatelessWidget {
   factory _MissionStatusCard.mission(MissionRun mission) {
     final completed = mission.status == MissionRunStatus.completed;
     final waiting = mission.status == MissionRunStatus.waitingForApproval;
+    final failed = {
+      MissionRunStatus.failed,
+      MissionRunStatus.cancelled,
+    }.contains(mission.status);
     final color = completed
         ? const Color(0xFF54E6A5)
         : waiting
         ? const Color(0xFFFFC857)
-        : const Color(0xFFFF6B7A);
+        : failed
+        ? const Color(0xFFFF6B7A)
+        : const Color(0xFF42D6FF);
     return _MissionStatusCard._(
       title: completed
           ? 'Mission completed'
           : waiting
           ? 'Approval required'
-          : 'Mission ${mission.status.name}',
+          : failed
+          ? 'Mission ${mission.status.name}'
+          : 'Mission in progress',
       subtitle:
           mission.finalResponse ??
           mission.errorMessage ??
@@ -219,7 +228,9 @@ class _MissionStatusCard extends StatelessWidget {
           ? Icons.check_circle_outline
           : waiting
           ? Icons.approval_outlined
-          : Icons.error_outline,
+          : failed
+          ? Icons.error_outline
+          : Icons.auto_awesome,
       color: color,
       steps: mission.steps,
     );
