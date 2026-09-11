@@ -1,5 +1,6 @@
+import asyncio
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Awaitable
 from uuid import uuid4
 
 from app.agent.executor import ExecutionError, Executor
@@ -8,6 +9,7 @@ from app.agent.planner import Planner, PlanningError
 from app.agent.repository import RunRepository
 from app.agent.state_machine import AgentStateMachine, StateTransitionError
 from app.events.bus import EventBus
+from app.memory.extractor import MemoryExtractor
 from app.providers.errors import ProviderError
 from app.tools.base import ToolContext, ToolError
 from app.tools.registry import ToolRegistry
@@ -32,6 +34,7 @@ class AgentRuntime:
         runs: RunRepository,
         events: EventBus,
         state_machine: AgentStateMachine | None = None,
+        memory_extractor: MemoryExtractor | None = None,
     ) -> None:
         self._planner = planner
         self._executor = executor
@@ -39,6 +42,13 @@ class AgentRuntime:
         self._runs = runs
         self._events = events
         self._states = state_machine or AgentStateMachine()
+        self._memory_extractor = memory_extractor
+        self._background_tasks: set[asyncio.Task[Any]] = set()
+
+    def _run_in_background(self, coro: Awaitable[Any]) -> None:
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
     async def create(
         self,
@@ -268,6 +278,26 @@ class AgentRuntime:
         await self._emit(run, "agent_message", {"content": run.final_response})
         await self._transition(run, AgentStatus.COMPLETED)
         await self._emit(run, "run_completed", {"response": run.final_response})
+
+        if self._memory_extractor is not None:
+            summary = self._build_run_summary(run)
+            self._run_in_background(
+                self._memory_extractor.extract_and_save(
+                    user_id=run.user_id,
+                    run_id=run.id,
+                    summary=summary,
+                )
+            )
+
+    def _build_run_summary(self, run: AgentRun) -> str:
+        parts = [f"Goal: {run.goal}"]
+        if run.plan:
+            parts.append(f"Plan: {run.plan.model_dump_json()}")
+        for obs in run.context.observations:
+            parts.append(f"Tool {obs.tool} output: {obs.output}")
+        if run.final_response:
+            parts.append(f"Final response: {run.final_response}")
+        return "\n".join(parts)
 
     async def _fail(
         self,

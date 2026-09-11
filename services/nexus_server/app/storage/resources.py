@@ -29,9 +29,16 @@ from app.events.repository import (
     SqlEventRepository,
 )
 from app.health import ReadinessService
+from app.memory.extractor import MemoryExtractor
+from app.memory.repository import (
+    InMemoryMemoryRepository,
+    MemoryRepository,
+    SqlMemoryRepository,
+)
 from app.providers.base import LLMProvider
 from app.providers.factory import create_provider
 from app.storage.doc_tables import initialize_doc_schema
+from app.storage.memory_tables import initialize_memory_schema
 from app.storage.tables import initialize_schema
 from app.storage.task_repository import InMemoryTaskRepository
 from app.tools.calculator import CalculatorTool
@@ -61,6 +68,8 @@ class AppResources:
     embedder: LocalEmbeddingProvider
     doc_indexer: DocumentIndexer
     indexing_tasks: set[asyncio.Task[None]]
+    memory_repository: MemoryRepository
+    memory_extractor: MemoryExtractor
 
     @classmethod
     def create(cls, settings: Settings) -> "AppResources":
@@ -76,13 +85,16 @@ class AppResources:
             run_repository: RunRepository = InMemoryRunRepository()
             event_repository: EventRepository = InMemoryEventRepository()
             doc_repository: DocumentRepository = InMemoryDocumentRepository()
+            memory_repository: MemoryRepository = InMemoryMemoryRepository()
         else:
             run_repository = SqlRunRepository(database)
             event_repository = SqlEventRepository(database)
             doc_repository = SqlDocumentRepository(database)
+            memory_repository = SqlMemoryRepository(database)
         event_bus = EventBus(event_repository)
         embedder = LocalEmbeddingProvider()
         doc_indexer = DocumentIndexer(doc_repository, embedder)
+        memory_extractor = MemoryExtractor(provider, memory_repository)
         tool_registry = ToolRegistry()
         tool_registry.register(CalculatorTool())
         tool_registry.register(CurrentTimeTool())
@@ -96,6 +108,7 @@ class AppResources:
             tool_registry,
             run_repository,
             event_bus,
+            memory_extractor=memory_extractor,
         )
 
         async def check_database() -> None:
@@ -124,12 +137,15 @@ class AppResources:
             embedder=embedder,
             doc_indexer=doc_indexer,
             indexing_tasks=set(),
+            memory_repository=memory_repository,
+            memory_extractor=memory_extractor,
         )
 
     async def initialize(self) -> None:
         if self.settings.app_env != "test":
             await initialize_schema(self.database)
             await initialize_doc_schema(self.database)
+            await initialize_memory_schema(self.database)
 
     def run_in_background(self, run: AgentRun) -> None:
         task = asyncio.create_task(self.agent_runtime.execute(run))

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexus_flutter/features/home/presentation/home_screen.dart';
 import 'package:nexus_flutter/features/knowledge/presentation/knowledge_screen.dart';
+import 'package:nexus_flutter/features/memory/presentation/memory_screen.dart';
 import 'package:nexus_flutter/features/missions/presentation/missions_screen.dart';
 import 'package:nexus_flutter/features/placeholder/presentation/placeholder_screen.dart';
 import 'package:nexus_flutter/routing/app_shell.dart';
@@ -41,10 +42,7 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/memory',
-              builder: (context, state) => const PlaceholderScreen(
-                title: 'Memory',
-                icon: Icons.psychology_outlined,
-              ),
+              builder: (context, state) => const MemoryScreen(),
             ),
           ],
         ),

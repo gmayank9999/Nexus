@@ -1,4 +1,5 @@
 """read_document tool: fetch a specific chunk from a document."""
+
 from __future__ import annotations
 
 from typing import Any
