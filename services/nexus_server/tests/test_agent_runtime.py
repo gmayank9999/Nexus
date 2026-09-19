@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from app.agent.executor import Executor
@@ -186,3 +188,34 @@ def test_state_machine_rejects_terminal_transitions() -> None:
 
     with pytest.raises(StateTransitionError):
         AgentStateMachine().transition(run, AgentStatus.EXECUTING)
+
+
+@pytest.mark.asyncio
+async def test_cancelling_running_mission_stops_before_tool_execution() -> None:
+    entered = asyncio.Event()
+
+    class SlowProvider(MockProvider):
+        async def generate(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            entered.set()
+            await asyncio.Event().wait()
+
+    runtime, tasks = build_runtime(SlowProvider())
+    run = await runtime.create("Create a task", user_id="user_test", max_iterations=12)
+    execution = asyncio.create_task(runtime.execute(run))
+    await asyncio.wait_for(entered.wait(), timeout=1)
+    cancelled = await runtime.cancel(run.id)
+    assert execution.cancelled()
+    assert cancelled.status == AgentStatus.CANCELLED
+    assert cancelled.trace[-1].type == "run_cancelled"
+    assert await tasks.list_for_user("user_test") == []
+    replay = await runtime.execute(run)
+    assert replay.status == AgentStatus.CANCELLED
+
+
+@pytest.mark.asyncio
+async def test_duplicate_execution_does_not_repeat_completed_tools() -> None:
+    runtime, tasks = build_runtime()
+    run = await runtime.create("Create a task", user_id="user_test", max_iterations=12)
+    results = await asyncio.gather(runtime.execute(run), runtime.execute(run))
+    assert all(result.status == AgentStatus.COMPLETED for result in results)
+    assert len(await tasks.list_for_user("user_test")) == 1

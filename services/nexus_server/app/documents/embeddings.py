@@ -43,9 +43,7 @@ class LocalEmbeddingProvider:
         if self._loaded:
             return
         try:
-            from sentence_transformers import (
-                SentenceTransformer,  # type: ignore[import-untyped]
-            )
+            from sentence_transformers import SentenceTransformer
 
             self._model = SentenceTransformer(self._model_name, local_files_only=True)
             logger.info("Loaded embedding model %s", self._model_name)
@@ -60,9 +58,7 @@ class LocalEmbeddingProvider:
     async def embed(self, texts: list[str]) -> list[list[float]]:
         self._load()
         if self._model is not None:
-            from sentence_transformers import (
-                SentenceTransformer,  # type: ignore[import-untyped]
-            )
+            from sentence_transformers import SentenceTransformer
 
             model: SentenceTransformer = self._model  # type: ignore[assignment]
             vectors = model.encode(texts, show_progress_bar=False)

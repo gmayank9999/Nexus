@@ -10,6 +10,7 @@ NEXUS_IMPLEMENTATION_PLAN.md
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.tmp-phase5-tests*/
 .mypy_cache/
 .ruff_cache/
 .coverage
@@ -37,4 +38,3 @@ Thumbs.db
 
 # Local infrastructure data
 .docker-data/
-

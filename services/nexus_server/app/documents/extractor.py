@@ -40,7 +40,7 @@ def extract_text(content: bytes, mime_type: str) -> str:
 
 def _extract_pdf(content: bytes) -> str:
     try:
-        import pypdf  # type: ignore[import-untyped]
+        import pypdf
 
         reader = pypdf.PdfReader(io.BytesIO(content))
         pages: list[str] = []
@@ -51,7 +51,7 @@ def _extract_pdf(content: bytes) -> str:
     except ImportError:
         # Fallback: try pypdf2 (legacy package name)
         try:
-            import PyPDF2  # type: ignore[import-untyped]
+            import PyPDF2
 
             reader2 = PyPDF2.PdfReader(io.BytesIO(content))
             pages2: list[str] = []
@@ -69,7 +69,7 @@ def _extract_pdf(content: bytes) -> str:
 
 def _extract_docx(content: bytes) -> str:
     try:
-        import docx  # type: ignore[import-untyped]
+        import docx
 
         doc = docx.Document(io.BytesIO(content))
         return "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())

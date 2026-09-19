@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Awaitable
+from collections.abc import Coroutine
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -45,8 +45,10 @@ class AgentRuntime:
         self._states = state_machine or AgentStateMachine()
         self._memory_extractor = memory_extractor
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._locks: dict[str, asyncio.Lock] = {}
+        self._executions: dict[str, asyncio.Task[Any]] = {}
 
-    def _run_in_background(self, coro: Awaitable[Any]) -> None:
+    def _run_in_background(self, coro: Coroutine[Any, Any, Any]) -> None:
         task = asyncio.create_task(coro)
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
@@ -83,6 +85,19 @@ class AgentRuntime:
         return await self.execute(run)
 
     async def execute(self, run: AgentRun) -> AgentRun:
+        async with self._locks.setdefault(run.id, asyncio.Lock()):
+            current = await self._runs.get(run.id)
+            if current is not None:
+                run = current
+            task = asyncio.current_task()
+            assert task is not None
+            self._executions[run.id] = task
+            try:
+                return await self._execute(run)
+            finally:
+                self._executions.pop(run.id, None)
+
+    async def _execute(self, run: AgentRun) -> AgentRun:
         if run.is_terminal() or run.status == AgentStatus.WAITING_FOR_APPROVAL:
             return run.model_copy(deep=True)
         try:
@@ -200,6 +215,12 @@ class AgentRuntime:
                     run.iteration += 1
                     await self._replan(run)
                 await self._runs.save(run)
+        except asyncio.CancelledError:
+            if not run.is_terminal():
+                await self._transition(run, AgentStatus.CANCELLED)
+                await self._emit(run, "run_cancelled")
+            await self._runs.save(run)
+            raise
         except ProviderError as error:
             await self._fail(run, error.code, str(error), error.retryable)
         except ToolError as error:
@@ -217,6 +238,10 @@ class AgentRuntime:
         return run.model_copy(deep=True)
 
     async def approve(self, run_id: str) -> AgentRun:
+        async with self._locks.setdefault(run_id, asyncio.Lock()):
+            return await self._approve(run_id)
+
+    async def _approve(self, run_id: str) -> AgentRun:
         run = await self._require_waiting_run(run_id)
         step = run.plan.steps[run.current_step] if run.plan is not None else None
         if step is None:
@@ -232,6 +257,10 @@ class AgentRuntime:
         return run.model_copy(deep=True)
 
     async def reject(self, run_id: str) -> AgentRun:
+        async with self._locks.setdefault(run_id, asyncio.Lock()):
+            return await self._reject(run_id)
+
+    async def _reject(self, run_id: str) -> AgentRun:
         run = await self._require_waiting_run(run_id)
         step = run.plan.steps[run.current_step] if run.plan is not None else None
         if step is None:
@@ -241,11 +270,33 @@ class AgentRuntime:
             "approval_received",
             {"step_id": step.id, "approved": False},
         )
+        run.context.observations.append(
+            Observation(
+                step_id=step.id,
+                tool=step.tool,
+                output={
+                    "approval": "rejected",
+                    "instruction": "Do not repeat this action.",
+                },
+            )
+        )
+        run.iteration += 1
         await self._transition(run, AgentStatus.REPLANNING)
         await self._runs.save(run)
         return run.model_copy(deep=True)
 
     async def cancel(self, run_id: str) -> AgentRun:
+        execution = self._executions.get(run_id)
+        if execution is not None:
+            execution.cancel()
+            await asyncio.gather(execution, return_exceptions=True)
+            cancelled = await self._runs.get(run_id)
+            if cancelled is not None and cancelled.status == AgentStatus.CANCELLED:
+                return cancelled
+        async with self._locks.setdefault(run_id, asyncio.Lock()):
+            return await self._cancel(run_id)
+
+    async def _cancel(self, run_id: str) -> AgentRun:
         run = await self._runs.get(run_id)
         if run is None:
             raise RunActionError("RUN_NOT_FOUND", "Agent run not found.")
@@ -270,6 +321,8 @@ class AgentRuntime:
         return run
 
     async def _replan(self, run: AgentRun) -> None:
+        if run.iteration >= run.max_iterations:
+            raise IterationLimitError("Maximum agent iterations reached.")
         if run.plan is None:
             raise PlanningError("Cannot replan a run without an existing plan.")
         await self._emit(run, "replanning_started")
@@ -309,6 +362,12 @@ class AgentRuntime:
         if run.final_response:
             parts.append(f"Final response: {run.final_response}")
         return "\n".join(parts)
+
+    async def close(self) -> None:
+        pending = list(self._background_tasks)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
 
     async def _fail(
         self,

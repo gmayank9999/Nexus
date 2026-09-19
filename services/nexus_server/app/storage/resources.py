@@ -181,10 +181,11 @@ class AppResources:
             task.cancel()
         if self.background_tasks:
             await asyncio.gather(*self.background_tasks, return_exceptions=True)
-        for task in self.indexing_tasks:
-            task.cancel()
+        for indexing_task in self.indexing_tasks:
+            indexing_task.cancel()
         if self.indexing_tasks:
             await asyncio.gather(*self.indexing_tasks, return_exceptions=True)
+        await self.agent_runtime.close()
         await self.http_client.aclose()
         await self.redis.aclose()
         await self.database.dispose()
