@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import math
 from typing import Protocol, runtime_checkable
@@ -46,7 +47,7 @@ class LocalEmbeddingProvider:
                 SentenceTransformer,  # type: ignore[import-untyped]
             )
 
-            self._model = SentenceTransformer(self._model_name)
+            self._model = SentenceTransformer(self._model_name, local_files_only=True)
             logger.info("Loaded embedding model %s", self._model_name)
         except Exception as exc:
             logger.warning(
@@ -80,7 +81,7 @@ def _hash_embed(text: str, dim: int = 64) -> list[float]:
     vec = [0.0] * dim
     words = text.lower().split()
     for word in words:
-        h = hash(word) & 0xFFFFFFFF
+        h = int.from_bytes(hashlib.sha256(word.encode("utf-8")).digest()[:8], "big")
         for i in range(dim):
             sign = 1 if (h >> i) & 1 else -1
             vec[i] += sign

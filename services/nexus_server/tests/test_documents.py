@@ -12,6 +12,12 @@ from app.documents.models import Document
 from app.documents.repository import InMemoryDocumentRepository
 
 
+@pytest.fixture(autouse=True)
+def offline_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests exercise the fallback; never load or download a model."""
+    monkeypatch.setattr(LocalEmbeddingProvider, "_load", lambda self: None)
+
+
 class TestExtractor:
     def test_supported_mimes(self) -> None:
         assert supported_mime("text/plain")
