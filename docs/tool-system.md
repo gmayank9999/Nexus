@@ -22,9 +22,12 @@ The initial safe registry contains:
 | `current_time` | read-only | Returns time for a validated IANA timezone |
 | `create_task` | local write | Creates a user-scoped task record |
 | `list_tasks` | read-only | Lists task records for the current user |
+| `create_artifact` | local write | Saves a typed output linked to the current run |
+| `search_files` | read-only | Retrieves matching document chunks and citations |
+| `read_document` | read-only | Reads stored document chunks |
 
 The calculator accepts only numeric constants and whitelisted arithmetic
-operators. It never calls `eval`. Task tools receive the authenticated user
+operators. It never calls `eval`. Task tools receive the workspace user
 identity through `ToolContext`; the model cannot choose another user.
 
 ## Permission policy

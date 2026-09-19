@@ -6,7 +6,7 @@ NEXUS separates a cross-platform control surface from a trusted agent runtime.
 This keeps model credentials and tool permissions off end-user devices while
 allowing the inference provider to change through configuration.
 
-## Phase 0 topology
+## Foundation topology
 
 ```mermaid
 flowchart TB
@@ -62,9 +62,9 @@ during database or cache outages.
 component map and HTTP 503 when any required dependency is down. Concurrent
 checks prevent one dependency timeout from needlessly delaying the other.
 
-## Target agent boundary
+## Agent boundary
 
-Phase 1 adds an explicit state machine behind the API:
+The runtime uses an explicit state machine behind the API:
 
 ```mermaid
 stateDiagram-v2
@@ -82,25 +82,36 @@ stateDiagram-v2
     Executing --> Failed
 ```
 
-Planner and executor outputs will be Pydantic-validated. The runtime—not the
-model—will enforce iteration limits, permissions, timeouts, persistence, and
-terminal transitions.
+Planner and executor outputs are Pydantic-validated. The runtime enforces
+iteration limits, permissions, timeouts, persistence, and terminal transitions.
 
 ## Data ownership
 
-PostgreSQL is the future source of truth for runs, steps, events, tool calls,
-documents, memories, tasks, and notes. Redis is reserved for transient
-coordination and fan-out; correctness cannot depend on Redis retaining durable
-history.
+PostgreSQL stores run snapshots (including plans and observations), ordered
+events, documents/chunks, memories, tasks, and artifacts. The task and artifact
+tables index `(user_id, run_id)` so outputs can be retrieved per workspace and
+mission. Redis is reserved for coordination; durable history lives in SQL.
 
-Ordered run events will be persisted before publication. WebSocket clients will
+Ordered run events are persisted before publication. WebSocket clients
 reconnect with a last-seen sequence and replay missed database events.
 
 ## Provider isolation
 
-Flutter never talks to Ollama or a paid endpoint. The server will expose an
+Flutter never talks to Ollama or a paid endpoint. The server exposes an
 `LLMProvider` protocol with Ollama, OpenAI-compatible, and deterministic mock
-implementations. Provider-specific payloads will stop at their adapters.
+implementations. Provider-specific payloads stop at their adapters.
+
+## Mission control surface
+
+The Missions tab queries saved runs and refreshes their status. Selecting a run
+loads `/missions/:id`, restores its snapshot and trace, and subscribes to new
+events only while the run is active. Tasks and artifacts have separate screens
+with optional run filters. Task status changes are persisted through PATCH;
+artifacts are created by a registered local-write tool.
+
+Schema initialization currently creates missing tables on startup. Versioned
+schema migrations and distributed execution leases remain future work. Use a
+single API worker for this release.
 
 ## Security boundaries
 

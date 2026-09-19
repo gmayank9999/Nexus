@@ -7,9 +7,9 @@ a custom Python runtime. It is designed to turn natural-language goals into
 observable, tool-using, memory-aware workflows with human approval at sensitive
 boundaries.
 
-Phase 1 adds the first working agent loop to the production-shaped monorepo. A
-goal entered in Flutter is planned, executed through a permissioned tool, and
-returned with a typed status and an ordered trace.
+The mission system now keeps history, tasks, and generated artifacts across
+server restarts. Flutter shows live execution, lets you reopen a mission, and
+provides task completion controls and an artifact reader.
 
 ## Why we did not build a chatbot
 
@@ -28,9 +28,10 @@ to the NEXUS backend.
 
 ## Current interface
 
-The home screen includes a working mission command surface, completed or failed
-mission state, plan steps, navigation shell, and live status cards for the API,
-PostgreSQL, and Redis.
+Home accepts a goal and displays its latest state. Missions lists historical
+and active runs with progress and opens a saved timeline at `/missions/:id`.
+Tasks and artifacts are accessible from the dashboard or filtered to one run.
+Knowledge and Memory contain the document and memory interfaces.
 
 ## Architecture
 
@@ -124,6 +125,13 @@ curl http://localhost:8000/api/v1/runs?user_id=local
 curl http://localhost:8000/api/v1/tasks?user_id=local
 ```
 
+For the multi-step demo, enter **Create a Flutter architecture study guide**
+in Home with the mock provider enabled. It schedules a study task and saves a
+clearly labeled demo study guide. Open Missions to inspect both steps, then
+open Tasks to mark the task complete or Artifacts to read the guide. Restarting
+the API preserves these records. Mock output is deterministic; real model
+quality requires a configured inference provider.
+
 ## Run the backend locally
 
 ```powershell
@@ -214,7 +222,7 @@ See [security architecture](docs/architecture.md#security-boundaries).
 
 - The core loop is implemented directly rather than hidden in an agent
   framework.
-- REST handles commands and snapshots; WebSockets will carry ordered events.
+- REST handles commands and snapshots; WebSockets carry ordered events.
 - FastAPI dependencies keep infrastructure replaceable in tests.
 - Riverpod owns async state; widgets do not call Dio directly.
 - Liveness and readiness are separate so partial outages remain diagnosable.
@@ -223,15 +231,21 @@ See [security architecture](docs/architecture.md#security-boundaries).
 ## Roadmap
 
 - **Phase 0 — Foundation:** Flutter, FastAPI, Compose, health, CI
-- **Phase 1 — Agent engine:** providers, planner, state machine, safe tools (current)
+- **Phase 1 — Agent engine:** providers, planner, state machine, safe tools
 - **Phase 2 — Streaming UI:** events, WebSocket recovery, approval cards
 - **Phase 3 — Documents/RAG:** ingestion, retrieval, citations
 - **Phase 4 — Memory:** policy, retrieval, user controls
-- **Phase 5 — Missions:** progress, replanning, artifacts
-- **Later:** voice, code intelligence, long-running missions
+- **Phase 5 — Missions:** history, progress, persistent tasks and artifacts (current)
+- **Phase 6 — Voice:** capture, speech providers, interruptions (next)
+- **Phase 7 — Code intelligence:** repository indexing and source graphs
+- **Phase 8 — Autonomous missions:** scheduling, retries, notifications
 
 Voice, computer control, browser automation, and code execution are deliberately
 not part of the current phase.
+
+See [mission behavior and verification](docs/missions.md) for the API contract,
+tested scenarios, changed files, and remaining limitations. This is a local
+development application: user IDs are workspace labels, not authentication.
 
 ## License
 
