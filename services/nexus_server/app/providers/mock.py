@@ -62,6 +62,24 @@ class MockProvider:
     def _plan(payload: dict[str, object]) -> dict[str, object]:
         goal = str(payload.get("goal", "Complete the goal"))
         lowered = goal.lower()
+        if "study guide" in lowered or "study plan" in lowered:
+            return {
+                "goal": goal,
+                "steps": [
+                    {
+                        "id": "step_1",
+                        "title": "Schedule a study session",
+                        "description": goal,
+                        "tool": "create_task",
+                    },
+                    {
+                        "id": "step_2",
+                        "title": "Save the study guide",
+                        "description": goal,
+                        "tool": "create_artifact",
+                    },
+                ],
+            }
         if "calculat" in lowered or re.search(r"\d\s*[-+*/]\s*\d", lowered):
             tool = "calculator"
             title = "Calculate the result"
@@ -97,6 +115,19 @@ class MockProvider:
             arguments = {"expression": expression}
         elif tool == "current_time":
             arguments = {"timezone": "UTC"}
+        elif tool == "create_artifact":
+            arguments = {
+                "type": "study_guide",
+                "title": goal[:160],
+                "content": (
+                    f"# {goal}\n\n"
+                    "Demo study guide (mock provider).\n\n"
+                    "## Study session\n"
+                    "1. Review the key concepts and write a short summary.\n"
+                    "2. Build a small example to apply the concepts.\n"
+                    "3. Explain the tradeoffs and record open questions.\n"
+                ),
+            }
         else:
             title = re.sub(
                 r"^(please\s+)?create\s+(a\s+)?task\s+(to\s+)?",

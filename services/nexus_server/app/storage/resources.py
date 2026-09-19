@@ -37,11 +37,21 @@ from app.memory.repository import (
 )
 from app.providers.base import LLMProvider
 from app.providers.factory import create_provider
+from app.storage.artifact_repository import (
+    ArtifactRepository,
+    InMemoryArtifactRepository,
+    SqlArtifactRepository,
+)
 from app.storage.doc_tables import initialize_doc_schema
 from app.storage.memory_tables import initialize_memory_schema
 from app.storage.tables import initialize_schema
-from app.storage.task_repository import InMemoryTaskRepository
+from app.storage.task_repository import (
+    InMemoryTaskRepository,
+    SqlTaskRepository,
+    TaskRepository,
+)
 from app.tools.calculator import CalculatorTool
+from app.tools.create_artifact import CreateArtifactTool
 from app.tools.current_time import CurrentTimeTool
 from app.tools.read_document import ReadDocumentTool
 from app.tools.registry import ToolRegistry
@@ -56,7 +66,8 @@ class AppResources:
     redis: Redis
     http_client: httpx.AsyncClient
     provider: LLMProvider
-    task_repository: InMemoryTaskRepository
+    task_repository: TaskRepository
+    artifact_repository: ArtifactRepository
     run_repository: RunRepository
     event_repository: EventRepository
     event_bus: EventBus
@@ -80,13 +91,16 @@ class AppResources:
         redis = Redis.from_url(settings.redis_url, decode_responses=True)
         http_client = httpx.AsyncClient()
         provider = create_provider(settings, http_client)
-        task_repository = InMemoryTaskRepository()
         if settings.app_env == "test":
+            task_repository: TaskRepository = InMemoryTaskRepository()
+            artifact_repository: ArtifactRepository = InMemoryArtifactRepository()
             run_repository: RunRepository = InMemoryRunRepository()
             event_repository: EventRepository = InMemoryEventRepository()
             doc_repository: DocumentRepository = InMemoryDocumentRepository()
             memory_repository: MemoryRepository = InMemoryMemoryRepository()
         else:
+            task_repository = SqlTaskRepository(database)
+            artifact_repository = SqlArtifactRepository(database)
             run_repository = SqlRunRepository(database)
             event_repository = SqlEventRepository(database)
             doc_repository = SqlDocumentRepository(database)
@@ -100,6 +114,7 @@ class AppResources:
         tool_registry.register(CurrentTimeTool())
         tool_registry.register(CreateTaskTool(task_repository))
         tool_registry.register(ListTasksTool(task_repository))
+        tool_registry.register(CreateArtifactTool(artifact_repository))
         tool_registry.register(SearchFilesTool(doc_repository, embedder))
         tool_registry.register(ReadDocumentTool(doc_repository))
         agent_runtime = AgentRuntime(
@@ -126,6 +141,7 @@ class AppResources:
             http_client=http_client,
             provider=provider,
             task_repository=task_repository,
+            artifact_repository=artifact_repository,
             run_repository=run_repository,
             event_repository=event_repository,
             event_bus=event_bus,

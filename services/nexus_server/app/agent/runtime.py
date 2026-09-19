@@ -1,6 +1,7 @@
 import asyncio
+from collections.abc import Awaitable
 from datetime import UTC, datetime
-from typing import Any, Awaitable
+from typing import Any
 from uuid import uuid4
 
 from app.agent.executor import ExecutionError, Executor
@@ -174,6 +175,16 @@ class AgentRuntime:
                         "tool_completed",
                         result.model_dump(mode="json"),
                     )
+                    if result.tool == "create_artifact":
+                        await self._emit(
+                            run,
+                            "artifact_created",
+                            {
+                                "id": result.output["id"],
+                                "title": result.output["title"],
+                                "type": result.output["type"],
+                            },
+                        )
                     run.current_step += 1
                     run.iteration += 1
                     if run.current_step >= len(run.plan.steps):
@@ -340,4 +351,6 @@ class AgentRuntime:
             return f"Calculated result: {last.output.get('result')}."
         if last.tool == "current_time":
             return f"Current time: {last.output.get('iso8601')}."
+        if last.tool == "create_artifact":
+            return f"Saved artifact: {last.output.get('title')}."
         return f"Completed {len(run.context.observations)} tool step(s)."
