@@ -94,7 +94,8 @@ class _HistoryApi implements MissionApi {
   @override
   Future<List<MissionRun>> listMissions() async => [_run('finished')];
   @override
-  Future<MissionRun> startMission(String goal) => getMission('active');
+  Future<MissionRun> startMission(String goal, {String? parentRunId}) =>
+      getMission('active');
   @override
   Stream<MissionEvent> watchMission(String runId, {int after = 0}) {
     connections++;

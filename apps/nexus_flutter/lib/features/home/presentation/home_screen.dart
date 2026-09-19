@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nexus_flutter/features/missions/application/follow_up_controller.dart';
 import 'package:nexus_flutter/features/missions/application/mission_controller.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
 import 'package:nexus_flutter/features/system_status/application/system_health_provider.dart';
@@ -81,7 +82,14 @@ class _CommandCardState extends ConsumerState<_CommandCard> {
   }
 
   Future<void> _startMission() async {
-    await ref.read(missionControllerProvider.notifier).start(_controller.text);
+    final selection = ref.read(followUpProvider);
+    final goal = _controller.text;
+    final started = await ref
+        .read(missionControllerProvider.notifier)
+        .start(goal, parentRunId: selection?.id);
+    if (!mounted || !started) return;
+    ref.read(followUpProvider.notifier).consume(selection);
+    if (_controller.text == goal) setState(_controller.clear);
   }
 
   @override
@@ -90,6 +98,7 @@ class _CommandCardState extends ConsumerState<_CommandCard> {
     final mission = ref.watch(missionControllerProvider).run;
     final isLoading = mission?.isLoading == true;
     final voiceBusy = ref.watch(voiceControllerProvider).isBusy;
+    final followUp = ref.watch(followUpProvider);
     final canSubmit =
         _controller.text.trim().isNotEmpty && !isLoading && !voiceBusy;
     return Container(
@@ -113,6 +122,30 @@ class _CommandCardState extends ConsumerState<_CommandCard> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
+          if (followUp != null) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Following up: ${followUp.goal}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Start without previous context',
+                  onPressed: isLoading || voiceBusy
+                      ? null
+                      : ref.read(followUpProvider.notifier).clear,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const Text(
+              'Uses up to 3 recent goal/reply excerpts. Review your next goal before starting.',
+            ),
+            const SizedBox(height: 12),
+          ],
           VoiceInput(
             enabled: !isLoading,
             onTranscript: (text) => setState(() {
@@ -182,6 +215,14 @@ class _MissionResult extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _MissionStatusCard.mission(mission),
+          if (mission.canFollowUp)
+            TextButton.icon(
+              onPressed: ref.watch(voiceControllerProvider).isBusy
+                  ? null
+                  : () => ref.read(followUpProvider.notifier).select(mission),
+              icon: const Icon(Icons.reply),
+              label: const Text('Follow up'),
+            ),
           if (mission.status == MissionRunStatus.completed &&
               mission.finalResponse?.trim().isNotEmpty == true)
             SpokenReply(sourceId: mission.id, text: mission.finalResponse!),

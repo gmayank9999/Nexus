@@ -61,6 +61,8 @@ class MissionRun {
     this.iteration = 0,
     this.maxIterations = 12,
     this.finalResponse,
+    this.parentRunId,
+    this.contextTruncated = false,
     this.errorMessage,
     this.events = const [],
   });
@@ -93,6 +95,10 @@ class MissionRun {
       iteration: json['iteration'] as int? ?? 0,
       maxIterations: json['max_iterations'] as int? ?? 12,
       finalResponse: json['final_response'] as String?,
+      parentRunId: json['parent_run_id'] as String?,
+      contextTruncated: json['context'] is Map
+          ? (json['context'] as Map)['conversation_truncated'] == true
+          : false,
       errorMessage: error is Map<String, dynamic>
           ? error['message'] as String?
           : null,
@@ -108,8 +114,14 @@ class MissionRun {
   final int iteration;
   final int maxIterations;
   final String? finalResponse;
+  final String? parentRunId;
+  final bool contextTruncated;
   final String? errorMessage;
   final List<MissionEvent> events;
+
+  bool get canFollowUp =>
+      status == MissionRunStatus.completed &&
+      finalResponse?.trim().isNotEmpty == true;
 
   bool get isTerminal => const {
     MissionRunStatus.completed,
@@ -147,6 +159,8 @@ class MissionRun {
       iteration: iteration ?? this.iteration,
       maxIterations: maxIterations,
       finalResponse: finalResponse ?? this.finalResponse,
+      parentRunId: parentRunId,
+      contextTruncated: contextTruncated,
       errorMessage: errorMessage ?? this.errorMessage,
       events: events,
     );

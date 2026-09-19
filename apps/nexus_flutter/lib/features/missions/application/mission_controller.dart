@@ -57,24 +57,29 @@ class MissionController extends Notifier<MissionFeedState> {
     return const MissionFeedState();
   }
 
-  Future<void> start(String goal) async {
+  Future<bool> start(String goal, {String? parentRunId}) async {
     final normalized = goal.trim();
     if (normalized.isEmpty || state.run?.isLoading == true) {
-      return;
+      return false;
     }
-    await _load(() => ref.read(missionApiProvider).startMission(normalized));
+    return _load(
+      () => ref
+          .read(missionApiProvider)
+          .startMission(normalized, parentRunId: parentRunId),
+    );
   }
 
-  Future<void> open(String runId) =>
-      _load(() => ref.read(missionApiProvider).getMission(runId));
+  Future<void> open(String runId) async {
+    await _load(() => ref.read(missionApiProvider).getMission(runId));
+  }
 
-  Future<void> _load(Future<MissionRun> Function() load) async {
+  Future<bool> _load(Future<MissionRun> Function() load) async {
     final generation = ++_generation;
     unawaited(_subscription?.cancel());
     state = const MissionFeedState(run: AsyncLoading());
     try {
       final run = await load();
-      if (generation != _generation) return;
+      if (generation != _generation) return false;
       state = MissionFeedState(run: AsyncData(run), events: run.events);
       if (!run.isTerminal) {
         _subscription = ref
@@ -91,9 +96,11 @@ class MissionController extends Notifier<MissionFeedState> {
               },
             );
       }
+      return true;
     } catch (error, stackTrace) {
-      if (generation != _generation) return;
+      if (generation != _generation) return false;
       state = MissionFeedState(run: AsyncError(error, stackTrace));
+      return false;
     }
   }
 

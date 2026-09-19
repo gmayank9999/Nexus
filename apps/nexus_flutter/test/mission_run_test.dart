@@ -3,6 +3,32 @@ import 'package:nexus_flutter/features/missions/domain/mission_event.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
 
 void main() {
+  test('retains follow-up metadata through streamed updates', () {
+    final run = MissionRun.fromJson(const {
+      'id': 'run_child',
+      'goal': 'Next',
+      'status': 'created',
+      'parent_run_id': 'run_parent',
+      'context': {'conversation_truncated': true},
+    });
+    expect(run.parentRunId, 'run_parent');
+    expect(run.contextTruncated, isTrue);
+    expect(run.canFollowUp, isFalse);
+    final updated = run.applyEvent(
+      MissionEvent(
+        id: 'event_1',
+        runId: run.id,
+        sequence: 1,
+        type: 'run_completed',
+        timestamp: DateTime.utc(2026),
+        payload: const {'response': 'Done'},
+      ),
+    );
+    expect(updated.parentRunId, run.parentRunId);
+    expect(updated.contextTruncated, isTrue);
+    expect(updated.canFollowUp, isTrue);
+  });
+
   test('parses a completed mission snapshot', () {
     final mission = MissionRun.fromJson(const {
       'id': 'run_1',

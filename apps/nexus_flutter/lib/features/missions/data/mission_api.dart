@@ -8,7 +8,7 @@ abstract interface class MissionApi {
 
   Future<MissionRun> getMission(String runId);
 
-  Future<MissionRun> startMission(String goal);
+  Future<MissionRun> startMission(String goal, {String? parentRunId});
 
   Stream<MissionEvent> watchMission(String runId, {int after = 0});
 
@@ -48,10 +48,10 @@ class DioMissionApi implements MissionApi {
   }
 
   @override
-  Future<MissionRun> startMission(String goal) async {
+  Future<MissionRun> startMission(String goal, {String? parentRunId}) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/v1/runs',
-      data: {'goal': goal, 'user_id': 'local'},
+      data: {'goal': goal, 'user_id': 'local', 'parent_run_id': ?parentRunId},
     );
     final data = response.data;
     if (data == null) {

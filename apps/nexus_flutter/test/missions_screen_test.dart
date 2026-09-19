@@ -87,7 +87,8 @@ class _ApprovalMissionApi implements MissionApi {
   );
 
   @override
-  Future<MissionRun> startMission(String goal) async => _waiting;
+  Future<MissionRun> startMission(String goal, {String? parentRunId}) async =>
+      _waiting;
 
   @override
   Stream<MissionEvent> watchMission(String runId, {int after = 0}) {

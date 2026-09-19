@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nexus_flutter/features/missions/application/follow_up_controller.dart';
 import 'package:nexus_flutter/features/missions/application/mission_controller.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_event.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
+import 'package:nexus_flutter/features/voice/application/voice_controller.dart';
 import 'package:nexus_flutter/features/voice/presentation/spoken_reply.dart';
 
 class MissionDetailScreen extends ConsumerStatefulWidget {
@@ -119,6 +121,27 @@ class _MissionDetails extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _RunSummary(run: run),
+        if (run.parentRunId != null)
+          TextButton.icon(
+            onPressed: () => context.go('/missions/${run.parentRunId}'),
+            icon: const Icon(Icons.history),
+            label: const Text('View previous mission'),
+          ),
+        if (run.contextTruncated)
+          const Text(
+            'Earlier context was shortened; this mission used recent excerpts only.',
+          ),
+        if (run.canFollowUp)
+          TextButton.icon(
+            onPressed: ref.watch(voiceControllerProvider).isBusy
+                ? null
+                : () {
+                    ref.read(followUpProvider.notifier).select(run);
+                    context.go('/home');
+                  },
+            icon: const Icon(Icons.reply),
+            label: const Text('Follow up'),
+          ),
         if (run.status == MissionRunStatus.completed &&
             run.finalResponse?.trim().isNotEmpty == true)
           SpokenReply(sourceId: run.id, text: run.finalResponse!),
