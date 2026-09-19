@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,9 +10,56 @@ import 'package:nexus_flutter/features/missions/domain/mission_event.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
 import 'package:nexus_flutter/features/system_status/application/system_health_provider.dart';
 import 'package:nexus_flutter/features/system_status/domain/system_health.dart';
+import 'package:nexus_flutter/features/voice/application/voice_controller.dart';
+import 'package:nexus_flutter/features/voice/data/realtime_session.dart';
+import 'package:nexus_flutter/features/voice/domain/voice_state.dart';
 import 'package:nexus_flutter/theme/nexus_theme.dart';
 
 void main() {
+  testWidgets('spoken goal is editable and never starts without confirmation', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeMissionApi();
+    final voice = _FakeVoiceSession();
+    addTearDown(voice.events.close);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          missionApiProvider.overrideWithValue(api),
+          voiceSessionFactoryProvider.overrideWithValue(() => voice),
+          systemHealthProvider.overrideWith(
+            (ref) async => const SystemHealth(
+              api: ServiceState.online,
+              postgres: ServiceState.online,
+              redis: ServiceState.online,
+              version: '0.1.0',
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: NexusTheme.dark,
+          home: const Scaffold(body: HomeScreen()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Speak'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+    expect(api.submittedGoals, isEmpty);
+    await tester.tap(find.text('Done recording'));
+    await tester.pumpAndSettle();
+    expect(find.text('Study Flutter'), findsOneWidget);
+    expect(api.submittedGoals, isEmpty);
+    await tester.enterText(find.byType(TextField), 'Study Flutter tomorrow');
+    await tester.pump();
+    await tester.tap(find.text('Start mission'));
+    await tester.pumpAndSettle();
+    expect(api.submittedGoals, ['Study Flutter tomorrow']);
+  });
+
   testWidgets('renders the command surface and live system state', (
     tester,
   ) async {
@@ -83,6 +132,7 @@ void main() {
 }
 
 class _FakeMissionApi implements MissionApi {
+  final submittedGoals = <String>[];
   @override
   Future<List<MissionRun>> listMissions() async => [await startMission('')];
 
@@ -91,6 +141,7 @@ class _FakeMissionApi implements MissionApi {
 
   @override
   Future<MissionRun> startMission(String goal) async {
+    submittedGoals.add(goal);
     return const MissionRun(
       id: 'run_test',
       goal: 'Create a task to learn Flutter',
@@ -114,4 +165,24 @@ class _FakeMissionApi implements MissionApi {
 
   @override
   Future<MissionRun> reject(String runId) => throw UnimplementedError();
+}
+
+class _FakeVoiceSession implements VoiceSession {
+  final events = StreamController<VoiceState>.broadcast();
+  @override
+  Stream<VoiceState> get updates => events.stream;
+  @override
+  Future<void> start() async {
+    events.add(const VoiceState(phase: VoicePhase.recording));
+  }
+
+  @override
+  Future<void> finish() async {
+    events.add(
+      const VoiceState(phase: VoicePhase.review, text: 'Study Flutter'),
+    );
+  }
+
+  @override
+  Future<void> close() async {}
 }

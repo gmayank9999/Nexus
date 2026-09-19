@@ -5,6 +5,8 @@ import 'package:nexus_flutter/features/missions/application/mission_controller.d
 import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
 import 'package:nexus_flutter/features/system_status/application/system_health_provider.dart';
 import 'package:nexus_flutter/features/system_status/domain/system_health.dart';
+import 'package:nexus_flutter/features/voice/application/voice_controller.dart';
+import 'package:nexus_flutter/features/voice/presentation/voice_input.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -86,7 +88,9 @@ class _CommandCardState extends ConsumerState<_CommandCard> {
     final colors = Theme.of(context).colorScheme;
     final mission = ref.watch(missionControllerProvider).run;
     final isLoading = mission?.isLoading == true;
-    final canSubmit = _controller.text.trim().isNotEmpty && !isLoading;
+    final voiceBusy = ref.watch(voiceControllerProvider).isBusy;
+    final canSubmit =
+        _controller.text.trim().isNotEmpty && !isLoading && !voiceBusy;
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -108,7 +112,18 @@ class _CommandCardState extends ConsumerState<_CommandCard> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
+          VoiceInput(
+            enabled: !isLoading,
+            onTranscript: (text) => setState(() {
+              _controller.text = text;
+              _controller.selection = TextSelection.collapsed(
+                offset: text.length,
+              );
+            }),
+          ),
+          const SizedBox(height: 12),
           TextField(
+            readOnly: voiceBusy,
             controller: _controller,
             minLines: 2,
             maxLines: 4,
@@ -125,12 +140,6 @@ class _CommandCardState extends ConsumerState<_CommandCard> {
           const SizedBox(height: 16),
           Row(
             children: [
-              IconButton.filledTonal(
-                onPressed: null,
-                tooltip: 'Voice arrives in a later phase',
-                icon: const Icon(Icons.mic_none_rounded),
-              ),
-              const SizedBox(width: 8),
               IconButton.filledTonal(
                 onPressed: null,
                 tooltip: 'Documents arrive in a later phase',
