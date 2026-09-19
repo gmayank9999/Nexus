@@ -81,9 +81,10 @@ platform errors, unsupported-target gating, microphone/output exclusion, and
 failure to stop playback. Platform tests mock the speech method channel and do
 not use a speaker or transmit response text to a real speech service.
 
-Full-duplex dialogue, persisted conversational turn context, incremental speech
-recognition, a self-hosted speech-output adapter, and real-device/model acceptance
-testing remain unfinished. Phase 6 is still in progress.
+Persisted turn context is now available through [explicit follow-up missions](conversations.md).
+Full-duplex dialogue, incremental speech recognition, a self-hosted speech-output
+adapter, and real-device/model acceptance testing remain unfinished. Phase 6 is
+still in progress.
 
 ## Changed files
 

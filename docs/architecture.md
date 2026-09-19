@@ -127,8 +127,11 @@ be read by an injectable device speech-output adapter on Android/web. A shared
 controller arbitrates playback against microphone capture and invalidates stale
 results on interruption. Read-aloud requires an explicit button press; system
 voices may process text online. Native Windows output is gated pending safe
-cancellation support. Multi-turn context and server-side synthesis remain future
-work. See [voice](voice.md) and [spoken replies](speech-output.md).
+cancellation support. Explicit follow-up missions snapshot bounded goal/reply
+excerpts from up to three earlier runs, persisted in run JSON and supplied to
+planning, execution, and replanning. Server-side synthesis remains future work.
+See [voice](voice.md), [spoken replies](speech-output.md), and
+[conversation boundaries](conversations.md).
 
 ## Security boundaries
 

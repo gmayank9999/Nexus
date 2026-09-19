@@ -120,8 +120,9 @@ late-result rejection, background cancellation, transcript review, and explicit
 mission submission. Real microphone capture, native device behavior, transcription
 accuracy, and browser visual QA remain unverified.
 
-The next voice work is conversational context and end-to-end testing against an
-explicitly configured local speech model. A self-hosted output adapter and safe
+Typed and spoken goals now support [explicit follow-up context](conversations.md).
+End-to-end testing against an explicitly configured local speech model remains
+open. A self-hosted output adapter and safe
 native Windows playback remain open. Earlier memory/RAG
 acceptance gaps remain tracked in [mission notes](missions.md#remaining-work).
 

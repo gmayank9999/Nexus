@@ -240,7 +240,7 @@ See [security architecture](docs/architecture.md#security-boundaries).
 - **Phase 3 — Documents/RAG:** ingestion, retrieval, citations
 - **Phase 4 — Memory:** policy, retrieval, user controls
 - **Phase 5 — Missions:** history, progress, persistent tasks and artifacts
-- **Phase 6 — Voice:** speech input and device read-aloud; conversational context pending (current)
+- **Phase 6 — Voice:** speech input, device read-aloud, and explicit follow-up context (in progress)
 - **Phase 7 — Code intelligence:** repository indexing and source graphs
 - **Phase 8 — Autonomous missions:** scheduling, retries, notifications
 
@@ -248,6 +248,10 @@ Computer control, browser automation, and code execution remain out of scope.
 Backend voice input is disabled by default; speech models are configured
 explicitly and never downloaded automatically. Device read-aloud is opt-in per
 reply and may use the system speech engine's network services.
+
+Completed missions can seed a new typed or spoken goal through **Follow up**.
+See [conversational context](docs/conversations.md) for the bounded history
+contract, mock demo, and remaining voice verification work.
 
 See [mission behavior and verification](docs/missions.md) for the API contract,
 tested scenarios, changed files, and remaining limitations. This is a local
