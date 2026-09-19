@@ -31,7 +31,9 @@ to the NEXUS backend.
 Home accepts a goal and displays its latest state. Missions lists historical
 and active runs with progress and opens a saved timeline at `/missions/:id`.
 Tasks and artifacts are accessible from the dashboard or filtered to one run.
-Knowledge and Memory contain the document and memory interfaces.
+Knowledge and Memory contain the document and memory interfaces. Home also has
+opt-in voice input: Speak, finish recording, review/edit the transcript, then
+start a mission. See [voice setup and limitations](docs/voice.md).
 
 ## Architecture
 
@@ -235,13 +237,14 @@ See [security architecture](docs/architecture.md#security-boundaries).
 - **Phase 2 — Streaming UI:** events, WebSocket recovery, approval cards
 - **Phase 3 — Documents/RAG:** ingestion, retrieval, citations
 - **Phase 4 — Memory:** policy, retrieval, user controls
-- **Phase 5 — Missions:** history, progress, persistent tasks and artifacts (current)
-- **Phase 6 — Voice:** capture, speech providers, interruptions (next)
+- **Phase 5 — Missions:** history, progress, persistent tasks and artifacts
+- **Phase 6 — Voice:** speech input implemented; spoken replies/conversation pending (current)
 - **Phase 7 — Code intelligence:** repository indexing and source graphs
 - **Phase 8 — Autonomous missions:** scheduling, retries, notifications
 
-Voice, computer control, browser automation, and code execution are deliberately
-not part of the current phase.
+Computer control, browser automation, and code execution remain out of scope.
+Voice is disabled by default; speech models are configured explicitly and are
+never downloaded automatically.
 
 See [mission behavior and verification](docs/missions.md) for the API contract,
 tested scenarios, changed files, and remaining limitations. This is a local

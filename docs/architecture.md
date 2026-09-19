@@ -113,6 +113,18 @@ Schema initialization currently creates missing tables on startup. Versioned
 schema migrations and distributed execution leases remain future work. Use a
 single API worker for this release.
 
+## Speech input boundary
+
+Flutter captures mono PCM16 through an injectable audio manager and streams one
+bounded utterance to `/ws/voice`. The backend owns the `VoiceProvider` adapter
+(self-hosted whisper.cpp or a labeled deterministic mock). Session admission,
+audio limits, deadlines, and cancellation are enforced before returning a final
+transcript. Browser origins are checked separately from HTTP CORS.
+
+Audio is not persisted by NEXUS. The user reviews text before the normal mission
+API receives a goal; voice cannot bypass tool permissions. Speech output and
+multi-turn conversational context remain future work. See [voice](voice.md).
+
 ## Security boundaries
 
 1. Secrets exist only in backend process configuration.
