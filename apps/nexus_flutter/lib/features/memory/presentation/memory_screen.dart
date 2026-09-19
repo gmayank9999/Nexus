@@ -150,9 +150,15 @@ class _MemoryCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  tooltip: 'Edit memory',
+                  onPressed: () => _showAction(context, deleting: false),
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
                   icon: const Icon(Icons.delete_outline, size: 18),
                   tooltip: 'Forget',
-                  onPressed: () => _confirmDelete(context, ref),
+                  onPressed: () => _showAction(context, deleting: true),
                   visualDensity: VisualDensity.compact,
                 ),
               ],
@@ -193,31 +199,125 @@ class _MemoryCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _showAction(
+    BuildContext context, {
+    required bool deleting,
+  }) async {
+    await showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Forget this memory?'),
-        content: Text('"${memory.content}"'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: const Text('Forget'),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (_) => _MemoryActionDialog(memory: memory, deleting: deleting),
     );
-    if (confirmed == true) {
-      await ref.read(memoryControllerProvider.notifier).delete(memory.id);
+  }
+}
+
+class _MemoryActionDialog extends ConsumerStatefulWidget {
+  const _MemoryActionDialog({required this.memory, required this.deleting});
+  final NexusMemory memory;
+  final bool deleting;
+
+  @override
+  ConsumerState<_MemoryActionDialog> createState() =>
+      _MemoryActionDialogState();
+}
+
+class _MemoryActionDialogState extends ConsumerState<_MemoryActionDialog> {
+  late final _text = TextEditingController(text: widget.memory.content);
+  bool _pending = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_pending) return;
+    final content = _text.text.trim();
+    if (!widget.deleting && (content.isEmpty || content.runes.length > 500)) {
+      setState(() => _error = 'Enter 1 to 500 characters.');
+      return;
+    }
+    setState(() {
+      _pending = true;
+      _error = null;
+    });
+    try {
+      final controller = ref.read(memoryControllerProvider.notifier);
+      if (widget.deleting) {
+        await controller.delete(widget.memory.id);
+      } else {
+        await controller.edit(widget.memory.id, content);
+      }
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _pending = false;
+          _error =
+              'Could not save this change. Your draft is still here. Try again.';
+        });
+      }
     }
   }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_pending,
+    child: AlertDialog(
+      title: Text(widget.deleting ? 'Forget this memory?' : 'Edit memory'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.deleting)
+              Text(widget.memory.content)
+            else ...[
+              TextField(
+                controller: _text,
+                readOnly: _pending,
+                minLines: 2,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  labelText: 'Memory content',
+                  helperText: 'Up to 500 characters',
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Saving marks this memory as user-confirmed with 100% confidence.',
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _pending ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _pending ? null : _submit,
+          child: Text(
+            _pending
+                ? 'Saving...'
+                : widget.deleting
+                ? 'Forget'
+                : 'Save memory',
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

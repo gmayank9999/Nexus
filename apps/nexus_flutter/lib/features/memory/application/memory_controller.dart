@@ -23,12 +23,16 @@ class MemoryController extends AsyncNotifier<List<NexusMemory>> {
       ref.read(memoryApiProvider).listMemories();
 
   Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(_load);
+    ref.invalidateSelf();
   }
 
   Future<void> delete(String id) async {
     await ref.read(memoryApiProvider).deleteMemory(id);
-    state = state.whenData((mems) => mems.where((m) => m.id != id).toList());
+    if (ref.mounted) ref.invalidateSelf();
+  }
+
+  Future<void> edit(String id, String content) async {
+    await ref.read(memoryApiProvider).editMemory(id, content);
+    if (ref.mounted) ref.invalidateSelf();
   }
 }
