@@ -84,6 +84,12 @@ void main() {
 
 class _FakeMissionApi implements MissionApi {
   @override
+  Future<List<MissionRun>> listMissions() async => [await startMission('')];
+
+  @override
+  Future<MissionRun> getMission(String runId) => startMission('');
+
+  @override
   Future<MissionRun> startMission(String goal) async {
     return const MissionRun(
       id: 'run_test',

@@ -46,10 +46,14 @@ class MissionFeedState {
 
 class MissionController extends Notifier<MissionFeedState> {
   StreamSubscription<MissionEvent>? _subscription;
+  int _generation = 0;
 
   @override
   MissionFeedState build() {
-    ref.onDispose(() => unawaited(_subscription?.cancel()));
+    ref.onDispose(() {
+      _generation++;
+      unawaited(_subscription?.cancel());
+    });
     return const MissionFeedState();
   }
 
@@ -58,16 +62,37 @@ class MissionController extends Notifier<MissionFeedState> {
     if (normalized.isEmpty || state.run?.isLoading == true) {
       return;
     }
-    await _subscription?.cancel();
+    await _load(() => ref.read(missionApiProvider).startMission(normalized));
+  }
+
+  Future<void> open(String runId) =>
+      _load(() => ref.read(missionApiProvider).getMission(runId));
+
+  Future<void> _load(Future<MissionRun> Function() load) async {
+    final generation = ++_generation;
+    unawaited(_subscription?.cancel());
     state = const MissionFeedState(run: AsyncLoading());
     try {
-      final run = await ref.read(missionApiProvider).startMission(normalized);
-      state = MissionFeedState(run: AsyncData(run));
-      _subscription = ref
-          .read(missionApiProvider)
-          .watchMission(run.id)
-          .listen(_receiveEvent, onError: _receiveStreamError);
+      final run = await load();
+      if (generation != _generation) return;
+      state = MissionFeedState(run: AsyncData(run), events: run.events);
+      if (!run.isTerminal) {
+        _subscription = ref
+            .read(missionApiProvider)
+            .watchMission(run.id, after: run.traceCount)
+            .listen(
+              (event) {
+                if (generation == _generation) _receiveEvent(event);
+              },
+              onError: (Object error, StackTrace trace) {
+                if (generation == _generation) {
+                  _receiveStreamError(error, trace);
+                }
+              },
+            );
+      }
     } catch (error, stackTrace) {
+      if (generation != _generation) return;
       state = MissionFeedState(run: AsyncError(error, stackTrace));
     }
   }
@@ -86,10 +111,21 @@ class MissionController extends Notifier<MissionFeedState> {
       return;
     }
     state = state.copyWith(actionPending: true, clearStreamError: true);
+    final generation = _generation;
     try {
       final run = await action(ref.read(missionApiProvider), current.value.id);
-      state = state.copyWith(run: AsyncData(run), actionPending: false);
+      if (generation != _generation) return;
+      final latest = state.run;
+      state = state.copyWith(
+        run:
+            latest is AsyncData<MissionRun> &&
+                latest.value.traceCount > run.traceCount
+            ? latest
+            : AsyncData(run),
+        actionPending: false,
+      );
     } catch (error) {
+      if (generation != _generation) return;
       state = state.copyWith(
         actionPending: false,
         streamError: error.toString(),
@@ -102,11 +138,16 @@ class MissionController extends Notifier<MissionFeedState> {
     if (current is! AsyncData<MissionRun>) {
       return;
     }
+    if (event.runId != current.value.id) return;
     if (state.events.any((existing) => existing.sequence == event.sequence)) {
       return;
     }
     state = state.copyWith(
-      run: AsyncData(current.value.applyEvent(event)),
+      run: AsyncData(
+        event.sequence > current.value.traceCount
+            ? current.value.applyEvent(event)
+            : current.value,
+      ),
       events: [...state.events, event]
         ..sort((left, right) => left.sequence.compareTo(right.sequence)),
       clearStreamError: true,

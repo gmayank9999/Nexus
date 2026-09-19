@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nexus_flutter/features/missions/application/mission_controller.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
 import 'package:nexus_flutter/features/system_status/application/system_health_provider.dart';
@@ -167,7 +168,17 @@ class _MissionResult extends ConsumerWidget {
     return run.when(
       loading: () => const _MissionStatusCard.loading(),
       error: (error, _) => _MissionStatusCard.error(error.toString()),
-      data: (mission) => _MissionStatusCard.mission(mission),
+      data: (mission) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _MissionStatusCard.mission(mission),
+          TextButton.icon(
+            onPressed: () => context.go('/missions/${mission.id}'),
+            icon: const Icon(Icons.timeline),
+            label: const Text('Open mission details'),
+          ),
+        ],
+      ),
     );
   }
 }

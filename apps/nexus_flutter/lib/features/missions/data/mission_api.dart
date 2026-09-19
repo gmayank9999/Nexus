@@ -4,6 +4,10 @@ import 'package:nexus_flutter/features/missions/domain/mission_event.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
 
 abstract interface class MissionApi {
+  Future<List<MissionRun>> listMissions();
+
+  Future<MissionRun> getMission(String runId);
+
   Future<MissionRun> startMission(String goal);
 
   Stream<MissionEvent> watchMission(String runId, {int after = 0});
@@ -23,6 +27,25 @@ class DioMissionApi implements MissionApi {
 
   final Dio _dio;
   final ReconnectingMissionEventStream _eventStream;
+
+  @override
+  Future<List<MissionRun>> listMissions() async {
+    final response = await _dio.get<List<dynamic>>('/api/v1/runs');
+    return (response.data ?? [])
+        .map(
+          (value) =>
+              MissionRun.fromJson(Map<String, dynamic>.from(value as Map)),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<MissionRun> getMission(String runId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/runs/$runId',
+    );
+    return MissionRun.fromJson(response.data!);
+  }
 
   @override
   Future<MissionRun> startMission(String goal) async {

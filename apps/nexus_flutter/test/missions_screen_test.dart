@@ -5,6 +5,7 @@ import 'package:nexus_flutter/features/missions/application/mission_controller.d
 import 'package:nexus_flutter/features/missions/data/mission_api.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_event.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
+import 'package:nexus_flutter/features/missions/presentation/mission_detail_screen.dart';
 import 'package:nexus_flutter/features/missions/presentation/missions_screen.dart';
 import 'package:nexus_flutter/theme/nexus_theme.dart';
 
@@ -24,7 +25,9 @@ void main() {
         container: container,
         child: MaterialApp(
           theme: NexusTheme.dark,
-          home: const Scaffold(body: MissionsScreen()),
+          home: const Scaffold(
+            body: MissionDetailScreen(runId: 'run_approval'),
+          ),
         ),
       ),
     );
@@ -39,10 +42,35 @@ void main() {
 
     expect(api.approvals, 1);
   });
+
+  testWidgets('loads historical missions into the dashboard', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          missionApiProvider.overrideWithValue(_ApprovalMissionApi()),
+        ],
+        child: MaterialApp(
+          theme: NexusTheme.dark,
+          home: const Scaffold(body: MissionsScreen()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Create an external task'), findsOneWidget);
+    expect(find.text('Needs approval · 0/1 steps'), findsOneWidget);
+    expect(find.text('Artifacts'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
 
 class _ApprovalMissionApi implements MissionApi {
   var approvals = 0;
+
+  @override
+  Future<List<MissionRun>> listMissions() async => [_waiting];
+
+  @override
+  Future<MissionRun> getMission(String runId) async => _waiting;
 
   MissionRun get _waiting => const MissionRun(
     id: 'run_approval',

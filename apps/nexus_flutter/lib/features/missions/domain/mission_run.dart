@@ -62,6 +62,7 @@ class MissionRun {
     this.maxIterations = 12,
     this.finalResponse,
     this.errorMessage,
+    this.events = const [],
   });
 
   factory MissionRun.fromJson(Map<String, dynamic> json) {
@@ -81,6 +82,13 @@ class MissionRun {
       status: MissionRunStatus.fromJson(json['status'] as String),
       steps: steps,
       traceCount: trace is List<dynamic> ? trace.length : 0,
+      events: trace is List<dynamic>
+          ? trace
+                .whereType<Map<String, dynamic>>()
+                .where((event) => event.containsKey('sequence'))
+                .map(MissionEvent.fromJson)
+                .toList(growable: false)
+          : const [],
       currentStep: json['current_step'] as int? ?? 0,
       iteration: json['iteration'] as int? ?? 0,
       maxIterations: json['max_iterations'] as int? ?? 12,
@@ -101,6 +109,24 @@ class MissionRun {
   final int maxIterations;
   final String? finalResponse;
   final String? errorMessage;
+  final List<MissionEvent> events;
+
+  bool get isTerminal => const {
+    MissionRunStatus.completed,
+    MissionRunStatus.failed,
+    MissionRunStatus.cancelled,
+  }.contains(status);
+
+  double get progress => status == MissionRunStatus.completed
+      ? 1
+      : steps.isEmpty
+      ? 0
+      : (currentStep / steps.length).clamp(0.0, 1.0);
+
+  String get statusLabel => switch (status) {
+    MissionRunStatus.waitingForApproval => 'Needs approval',
+    _ => '${status.name[0].toUpperCase()}${status.name.substring(1)}',
+  };
 
   MissionRun copyWith({
     MissionRunStatus? status,
@@ -122,6 +148,7 @@ class MissionRun {
       maxIterations: maxIterations,
       finalResponse: finalResponse ?? this.finalResponse,
       errorMessage: errorMessage ?? this.errorMessage,
+      events: events,
     );
   }
 
