@@ -6,6 +6,7 @@ import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
 import 'package:nexus_flutter/features/system_status/application/system_health_provider.dart';
 import 'package:nexus_flutter/features/system_status/domain/system_health.dart';
 import 'package:nexus_flutter/features/voice/application/voice_controller.dart';
+import 'package:nexus_flutter/features/voice/presentation/spoken_reply.dart';
 import 'package:nexus_flutter/features/voice/presentation/voice_input.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -181,6 +182,9 @@ class _MissionResult extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _MissionStatusCard.mission(mission),
+          if (mission.status == MissionRunStatus.completed &&
+              mission.finalResponse?.trim().isNotEmpty == true)
+            SpokenReply(sourceId: mission.id, text: mission.finalResponse!),
           TextButton.icon(
             onPressed: () => context.go('/missions/${mission.id}'),
             icon: const Icon(Icons.timeline),

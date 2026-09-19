@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:nexus_flutter/features/missions/application/mission_controller.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_event.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_run.dart';
+import 'package:nexus_flutter/features/voice/presentation/spoken_reply.dart';
 
 class MissionDetailScreen extends ConsumerStatefulWidget {
   const MissionDetailScreen({required this.runId, super.key});
@@ -118,6 +119,9 @@ class _MissionDetails extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _RunSummary(run: run),
+        if (run.status == MissionRunStatus.completed &&
+            run.finalResponse?.trim().isNotEmpty == true)
+          SpokenReply(sourceId: run.id, text: run.finalResponse!),
         if (run.status == MissionRunStatus.waitingForApproval) ...[
           const SizedBox(height: 16),
           _ApprovalCard(pending: feed.actionPending),
