@@ -18,12 +18,15 @@ async def create_run(
     request: RunCreate,
     resources: Annotated[AppResources, Depends(get_resources)],
 ) -> AgentRun:
-    run = await resources.agent_runtime.create(
-        request.goal,
-        user_id=request.user_id,
-        max_iterations=(
-            request.max_iterations or resources.settings.nexus_max_agent_iterations
-        ),
+    run = await _run_action(
+        resources.agent_runtime.create(
+            request.goal,
+            user_id=request.user_id,
+            max_iterations=(
+                request.max_iterations or resources.settings.nexus_max_agent_iterations
+            ),
+            parent_run_id=request.parent_run_id,
+        )
     )
     resources.run_in_background(run)
     return run

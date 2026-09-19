@@ -27,6 +27,8 @@ class Executor:
             "goal": goal,
             "step": step.model_dump(mode="json"),
             "observations": context.model_dump(mode="json")["observations"],
+            "conversation": [turn.model_dump() for turn in context.conversation],
+            "conversation_truncated": context.conversation_truncated,
             "tools": [
                 definition.model_dump(mode="json")
                 for definition in self._tools.definitions()

@@ -5,7 +5,18 @@ from typing import Any
 from uuid import uuid4
 
 from app.agent.executor import ExecutionError, Executor
-from app.agent.models import ActionKind, AgentRun, AgentStatus, Observation, RunError
+from app.agent.models import (
+    MAX_CONTEXT_GOAL_CHARS,
+    MAX_CONTEXT_REPLY_CHARS,
+    MAX_CONVERSATION_TURNS,
+    ActionKind,
+    AgentContext,
+    AgentRun,
+    AgentStatus,
+    ConversationTurn,
+    Observation,
+    RunError,
+)
 from app.agent.planner import Planner, PlanningError
 from app.agent.repository import RunRepository
 from app.agent.state_machine import AgentStateMachine, StateTransitionError
@@ -59,16 +70,56 @@ class AgentRuntime:
         *,
         user_id: str,
         max_iterations: int,
+        parent_run_id: str | None = None,
     ) -> AgentRun:
+        context = await self._conversation_context(parent_run_id, user_id)
         run = AgentRun(
             id=f"run_{uuid4().hex}",
             user_id=user_id,
             goal=goal,
             max_iterations=max_iterations,
+            parent_run_id=parent_run_id,
+            context=context,
         )
-        await self._emit(run, "run_created", {"goal": goal})
+        await self._emit(
+            run, "run_created", {"goal": goal, "parent_run_id": parent_run_id}
+        )
         await self._runs.save(run)
         return run.model_copy(deep=True)
+
+    async def _conversation_context(
+        self, parent_run_id: str | None, user_id: str
+    ) -> AgentContext:
+        if parent_run_id is None:
+            return AgentContext()
+        parent = await self._runs.get(parent_run_id)
+        # Workspace labels are not authentication; this is a local prototype.
+        if parent is None or parent.user_id != user_id:
+            raise RunActionError("RUN_NOT_FOUND", "Parent mission not found.")
+        if parent.status != AgentStatus.COMPLETED or not parent.final_response:
+            raise RunActionError(
+                "PARENT_RUN_NOT_COMPLETED", "Follow up on a completed mission."
+            )
+        turn = ConversationTurn(
+            run_id=parent.id,
+            goal=parent.goal[:MAX_CONTEXT_GOAL_CHARS],
+            response=parent.final_response[:MAX_CONTEXT_REPLY_CHARS],
+            truncated=(
+                len(parent.goal) > MAX_CONTEXT_GOAL_CHARS
+                or len(parent.final_response) > MAX_CONTEXT_REPLY_CHARS
+            ),
+        )
+        turns = [*parent.context.conversation, turn]
+        return AgentContext(
+            conversation=[
+                item.model_copy(deep=True) for item in turns[-MAX_CONVERSATION_TURNS:]
+            ],
+            conversation_truncated=(
+                parent.context.conversation_truncated
+                or len(turns) > MAX_CONVERSATION_TURNS
+                or turn.truncated
+            ),
+        )
 
     async def start(
         self,
@@ -76,11 +127,13 @@ class AgentRuntime:
         *,
         user_id: str,
         max_iterations: int,
+        parent_run_id: str | None = None,
     ) -> AgentRun:
         run = await self.create(
             goal,
             user_id=user_id,
             max_iterations=max_iterations,
+            parent_run_id=parent_run_id,
         )
         return await self.execute(run)
 

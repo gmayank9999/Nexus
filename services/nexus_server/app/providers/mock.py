@@ -105,6 +105,22 @@ class MockProvider:
     @staticmethod
     def _decision(payload: dict[str, object]) -> dict[str, object]:
         goal = str(payload.get("goal", "Complete the goal"))
+        conversation = payload.get("conversation")
+        if goal.strip().lower().rstrip("?.") == "what was the previous result":
+            previous = (
+                conversation[-1]
+                if isinstance(conversation, list) and conversation
+                else None
+            )
+            response = previous.get("response") if isinstance(previous, dict) else None
+            return {
+                "action": "respond",
+                "content": (
+                    f"Mock follow-up: {response}"
+                    if response
+                    else "Mock follow-up: no previous mission was selected."
+                ),
+            }
         step = payload.get("step")
         step_data = step if isinstance(step, dict) else {}
         tool = str(step_data.get("tool", "create_task"))

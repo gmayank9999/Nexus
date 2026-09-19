@@ -33,6 +33,8 @@ class Planner:
         payload = {
             "goal": goal,
             "observations": context.model_dump(mode="json")["observations"],
+            "conversation": [turn.model_dump() for turn in context.conversation],
+            "conversation_truncated": context.conversation_truncated,
             "previous_plan": (
                 previous_plan.model_dump(mode="json") if previous_plan else None
             ),

@@ -66,8 +66,24 @@ class Observation(BaseModel):
     output: dict[str, Any]
 
 
+MAX_CONVERSATION_TURNS = 3
+MAX_CONTEXT_GOAL_CHARS = 2000
+MAX_CONTEXT_REPLY_CHARS = 4000
+
+
+class ConversationTurn(BaseModel):
+    run_id: str
+    goal: str = Field(max_length=MAX_CONTEXT_GOAL_CHARS)
+    response: str = Field(max_length=MAX_CONTEXT_REPLY_CHARS)
+    truncated: bool = False
+
+
 class AgentContext(BaseModel):
     observations: list[Observation] = Field(default_factory=list)
+    conversation: list[ConversationTurn] = Field(
+        default_factory=list, max_length=MAX_CONVERSATION_TURNS
+    )
+    conversation_truncated: bool = False
 
 
 class RunError(BaseModel):
@@ -79,6 +95,7 @@ class RunError(BaseModel):
 class AgentRun(BaseModel):
     id: str
     user_id: str
+    parent_run_id: str | None = None
     goal: str = Field(min_length=1, max_length=4000)
     status: AgentStatus = AgentStatus.CREATED
     plan: Plan | None = None
