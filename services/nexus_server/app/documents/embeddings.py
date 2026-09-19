@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import math
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class LocalEmbeddingProvider:
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
         self._model_name = model_name
-        self._model: object | None = None
+        self._model: Any = None
         self._loaded = False
 
     def _load(self) -> None:
@@ -58,10 +58,7 @@ class LocalEmbeddingProvider:
     async def embed(self, texts: list[str]) -> list[list[float]]:
         self._load()
         if self._model is not None:
-            from sentence_transformers import SentenceTransformer
-
-            model: SentenceTransformer = self._model  # type: ignore[assignment]
-            vectors = model.encode(texts, show_progress_bar=False)
+            vectors = self._model.encode(texts, show_progress_bar=False)
             return [v.tolist() for v in vectors]
         return [_hash_embed(t) for t in texts]
 
