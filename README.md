@@ -33,7 +33,9 @@ and active runs with progress and opens a saved timeline at `/missions/:id`.
 Tasks and artifacts are accessible from the dashboard or filtered to one run.
 Knowledge and Memory contain the document and memory interfaces. Home also has
 opt-in voice input: Speak, finish recording, review/edit the transcript, then
-start a mission. See [voice setup and limitations](docs/voice.md).
+start a mission. Completed replies offer manually triggered device read-aloud
+on Android/web, with Stop controls. See [voice setup](docs/voice.md) and
+[speech-output privacy and platform limits](docs/speech-output.md).
 
 ## Architecture
 
@@ -238,13 +240,14 @@ See [security architecture](docs/architecture.md#security-boundaries).
 - **Phase 3 — Documents/RAG:** ingestion, retrieval, citations
 - **Phase 4 — Memory:** policy, retrieval, user controls
 - **Phase 5 — Missions:** history, progress, persistent tasks and artifacts
-- **Phase 6 — Voice:** speech input implemented; spoken replies/conversation pending (current)
+- **Phase 6 — Voice:** speech input and device read-aloud; conversational context pending (current)
 - **Phase 7 — Code intelligence:** repository indexing and source graphs
 - **Phase 8 — Autonomous missions:** scheduling, retries, notifications
 
 Computer control, browser automation, and code execution remain out of scope.
-Voice is disabled by default; speech models are configured explicitly and are
-never downloaded automatically.
+Backend voice input is disabled by default; speech models are configured
+explicitly and never downloaded automatically. Device read-aloud is opt-in per
+reply and may use the system speech engine's network services.
 
 See [mission behavior and verification](docs/missions.md) for the API contract,
 tested scenarios, changed files, and remaining limitations. This is a local

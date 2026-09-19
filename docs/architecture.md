@@ -122,8 +122,13 @@ audio limits, deadlines, and cancellation are enforced before returning a final
 transcript. Browser origins are checked separately from HTTP CORS.
 
 Audio is not persisted by NEXUS. The user reviews text before the normal mission
-API receives a goal; voice cannot bypass tool permissions. Speech output and
-multi-turn conversational context remain future work. See [voice](voice.md).
+API receives a goal; voice cannot bypass tool permissions. Completed replies can
+be read by an injectable device speech-output adapter on Android/web. A shared
+controller arbitrates playback against microphone capture and invalidates stale
+results on interruption. Read-aloud requires an explicit button press; system
+voices may process text online. Native Windows output is gated pending safe
+cancellation support. Multi-turn context and server-side synthesis remain future
+work. See [voice](voice.md) and [spoken replies](speech-output.md).
 
 ## Security boundaries
 

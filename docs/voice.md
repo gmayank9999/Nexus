@@ -1,9 +1,10 @@
-# Voice input (Phase 6, first slice)
+# Voice input (Phase 6)
 
-Status: speech input is implemented; Phase 6 is **not yet complete**. Audio
-replies, conversational turn context, incremental transcription, and interruption
-of spoken replies remain to be built. The current flow is push-to-talk, review,
-then explicit mission submission. It is not a full-duplex realtime assistant.
+Status: speech input and interruptible device read-aloud are implemented;
+Phase 6 is **not yet complete**. Conversational turn context, incremental
+transcription, and real-device/model verification remain outstanding. The flow
+is push-to-talk, review, then explicit mission submission—not full-duplex dialogue.
+See [spoken replies](speech-output.md) for supported targets and privacy limits.
 
 ## Using it
 
@@ -100,12 +101,13 @@ reviewed text uses the existing `POST /api/v1/runs` flow and permission policy.
 
 ## Verification and remaining work
 
-Verification on this workstation: 62 backend tests and 25 Flutter tests passed;
+Input-slice verification: 62 backend tests and 25 Flutter tests passed;
 backend lint, strict type checks, and Flutter analysis passed. Web compilation and the Docker
 mock-voice-to-mission smoke check passed. A Windows release build was attempted
 but blocked by the missing Visual Studio C++ toolchain; no Windows build success
 is claimed. Install the Flutter Windows development prerequisites and rerun
 `flutter build windows --release` before native device verification.
+The later read-aloud checks are recorded in [spoken replies](speech-output.md#verification).
 
 Backend tests cover enablement, Origin rejection, protocol errors, frame/duration
 limits, admission capacity, WAV format, mock-to-agent submission, timeout, cancel,
@@ -118,9 +120,9 @@ late-result rejection, background cancellation, transcript review, and explicit
 mission submission. Real microphone capture, native device behavior, transcription
 accuracy, and browser visual QA remain unverified.
 
-The next voice slice should add response playback and interruption behind a
-speech-output abstraction, followed by conversational context and end-to-end
-testing against an explicitly configured local speech model. Earlier memory/RAG
+The next voice work is conversational context and end-to-end testing against an
+explicitly configured local speech model. A self-hosted output adapter and safe
+native Windows playback remain open. Earlier memory/RAG
 acceptance gaps remain tracked in [mission notes](missions.md#remaining-work).
 
 ## Changed files
