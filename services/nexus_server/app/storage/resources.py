@@ -57,6 +57,8 @@ from app.tools.read_document import ReadDocumentTool
 from app.tools.registry import ToolRegistry
 from app.tools.search_files import SearchFilesTool
 from app.tools.tasks import CreateTaskTool, ListTasksTool
+from app.voice.provider import MockVoiceProvider, VoiceProvider, WhisperCppProvider
+from app.voice.session import VoiceService
 
 
 @dataclass(slots=True)
@@ -81,6 +83,7 @@ class AppResources:
     indexing_tasks: set[asyncio.Task[None]]
     memory_repository: MemoryRepository
     memory_extractor: MemoryExtractor
+    voice_service: VoiceService
 
     @classmethod
     def create(cls, settings: Settings) -> "AppResources":
@@ -91,6 +94,17 @@ class AppResources:
         redis = Redis.from_url(settings.redis_url, decode_responses=True)
         http_client = httpx.AsyncClient()
         provider = create_provider(settings, http_client)
+        voice_provider: VoiceProvider = (
+            MockVoiceProvider()
+            if settings.nexus_voice_provider == "mock"
+            else WhisperCppProvider(http_client, str(settings.nexus_whisper_base_url))
+        )
+        voice_service = VoiceService(
+            voice_provider,
+            max_sessions=settings.nexus_voice_max_sessions,
+            max_seconds=settings.nexus_voice_max_seconds,
+            timeout_seconds=settings.nexus_voice_timeout_seconds,
+        )
         if settings.app_env == "test":
             task_repository: TaskRepository = InMemoryTaskRepository()
             artifact_repository: ArtifactRepository = InMemoryArtifactRepository()
@@ -155,6 +169,7 @@ class AppResources:
             indexing_tasks=set(),
             memory_repository=memory_repository,
             memory_extractor=memory_extractor,
+            voice_service=voice_service,
         )
 
     async def initialize(self) -> None:

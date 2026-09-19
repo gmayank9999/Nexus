@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import AnyHttpUrl, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,6 +30,11 @@ class Settings(BaseSettings):
 
     nexus_enable_web_search: bool = False
     nexus_enable_voice: bool = False
+    nexus_voice_provider: Literal["whisper_cpp", "mock"] = "whisper_cpp"
+    nexus_whisper_base_url: AnyHttpUrl = AnyHttpUrl("http://localhost:8080")
+    nexus_voice_max_seconds: int = Field(default=60, ge=1, le=120)
+    nexus_voice_timeout_seconds: float = Field(default=60, gt=0, le=180)
+    nexus_voice_max_sessions: int = Field(default=4, ge=1, le=16)
     nexus_enable_code_execution: bool = False
 
 
