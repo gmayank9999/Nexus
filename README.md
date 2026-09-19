@@ -224,6 +224,10 @@ See [security architecture](docs/architecture.md#security-boundaries).
 
 ## Engineering decisions
 
+Saved memories can be corrected from the Memory screen. See
+[memory controls](docs/memory-controls.md) for workspace compatibility, editing
+semantics, and remaining memory integration work.
+
 - The core loop is implemented directly rather than hidden in an agent
   framework.
 - REST handles commands and snapshots; WebSockets carry ordered events.
