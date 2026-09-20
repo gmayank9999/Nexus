@@ -396,7 +396,14 @@ class AgentRuntime:
         await self._transition(run, AgentStatus.COMPLETED)
         await self._emit(run, "run_completed", {"response": run.final_response})
 
-        if self._memory_extractor is not None:
+        # Repository evidence is not personal memory. Keep it in the run trace,
+        # but do not feed code-tool runs into automatic fact extraction.
+        inspected_code = any(
+            observation.tool
+            in {"list_repositories", "search_code", "read_file", "find_symbol"}
+            for observation in run.context.observations
+        )
+        if self._memory_extractor is not None and not inspected_code:
             summary = self._build_run_summary(run)
             self._run_in_background(
                 self._memory_extractor.extract_and_save(
@@ -473,4 +480,36 @@ class AgentRuntime:
                 f"- {memory['content']} (memory {memory['id']})" for memory in memories
             )
             return f"Saved memory excerpts (not verified facts):\n{excerpts}"
+        if last.tool == "list_repositories":
+            repositories = last.output.get("repositories", [])
+            return "Imported repository snapshots (up to 20):\n" + (
+                "\n".join(f"- {item['id']}: {item['name']}" for item in repositories)
+                or "No snapshots found in this workspace."
+            )
+        if last.tool in {"search_code", "find_symbol"}:
+            key = "matches" if last.tool == "search_code" else "symbols"
+            matches = last.output.get(key, [])
+            excerpts = "\n".join(
+                f"- {item['path']}:{item['line']}: "
+                f"{item.get('text', item.get('name', ''))}"
+                for item in matches
+            )
+            return (
+                f"Source evidence from {last.output['repository_id']} "
+                "(bounded index; not a runtime call trace):\n"
+                + (excerpts or "No matching indexed evidence.")
+                + ("\nResults truncated." if last.output.get("truncated") else "")
+                + (
+                    "\nSymbol index is incomplete."
+                    if last.output.get("incomplete_index")
+                    else ""
+                )
+            )
+        if last.tool == "read_file":
+            return (
+                f"Source excerpt: {last.output['repository_id']} "
+                f"{last.output['path']}:{last.output['start_line']}\n"
+                f"{last.output['content']}"
+                + ("\nExcerpt truncated." if last.output.get("truncated") else "")
+            )
         return f"Completed {len(run.context.observations)} tool step(s)."

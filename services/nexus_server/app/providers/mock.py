@@ -62,6 +62,30 @@ class MockProvider:
     def _plan(payload: dict[str, object]) -> dict[str, object]:
         goal = str(payload.get("goal", "Complete the goal"))
         lowered = goal.lower()
+        code_match = re.fullmatch(
+            r"(search code|find symbol) in (repo_[a-zA-Z0-9_-]+) for (.+)",
+            goal,
+            flags=re.IGNORECASE,
+        )
+        if lowered == "list repositories" or code_match:
+            code_tool = (
+                "list_repositories"
+                if code_match is None
+                else "search_code"
+                if code_match.group(1).lower() == "search code"
+                else "find_symbol"
+            )
+            return {
+                "goal": goal,
+                "steps": [
+                    {
+                        "id": "step_1",
+                        "title": "Inspect repository evidence",
+                        "description": goal,
+                        "tool": code_tool,
+                    }
+                ],
+            }
         if lowered.startswith("search memories for "):
             return {
                 "goal": goal,
@@ -137,7 +161,23 @@ class MockProvider:
         step_data = step if isinstance(step, dict) else {}
         tool = str(step_data.get("tool", "create_task"))
         arguments: dict[str, object]
-        if tool == "search_memories":
+        if tool == "list_repositories":
+            arguments = {}
+        elif tool in {"search_code", "find_symbol"}:
+            match = re.fullmatch(
+                r"(?:search code|find symbol) in (repo_[a-zA-Z0-9_-]+) for (.+)",
+                goal,
+                flags=re.IGNORECASE,
+            )
+            if match is None:
+                return {
+                    "action": "respond",
+                    "content": (
+                        "Mock code demo requires an explicit repository ID and query."
+                    ),
+                }
+            arguments = {"repository_id": match.group(1), "query": match.group(2)[:100]}
+        elif tool == "search_memories":
             arguments = {"query": goal[len("search memories for ") :].strip()[:200]}
         elif tool == "calculator":
             match = re.search(r"(?:calculate\s*)?([\d\s().+*/%-]+)", goal.lower())
