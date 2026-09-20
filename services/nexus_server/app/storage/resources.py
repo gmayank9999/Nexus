@@ -57,6 +57,7 @@ from app.storage.task_repository import (
 )
 from app.tools.calculator import CalculatorTool
 from app.tools.code import (
+    DependencyGraphTool,
     FindSymbolTool,
     ListRepositoriesTool,
     ReadFileTool,
@@ -150,6 +151,7 @@ class AppResources:
         tool_registry.register(SearchMemoriesTool(memory_repository))
         tool_registry.register(ListRepositoriesTool(code_repository))
         tool_registry.register(SearchCodeTool(code_repository))
+        tool_registry.register(DependencyGraphTool(code_repository))
         tool_registry.register(ReadFileTool(code_repository))
         tool_registry.register(FindSymbolTool(code_repository))
         agent_runtime = AgentRuntime(

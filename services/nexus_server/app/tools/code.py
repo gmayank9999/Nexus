@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.code.graph import dependency_graph
 from app.code.models import RepositorySnapshot
 from app.code.repository import CodeRepository
 from app.tools.base import PermissionLevel, Tool, ToolContext, ToolError
@@ -33,6 +34,10 @@ class SearchCodeInput(RepositoryInput):
 class ReadFileInput(RepositoryInput):
     path: str = Field(min_length=1, max_length=300)
     start_line: int = Field(default=1, ge=1)
+
+
+class DependencyGraphInput(RepositoryInput):
+    source_root: str = Field(default="", max_length=300)
 
 
 class _RepositoryTool(Tool):
@@ -68,6 +73,30 @@ class ListRepositoriesTool(_RepositoryTool):
             "repositories": [item.model_dump(mode="json") for item in summaries],
             "limit": 20,
         }
+
+
+class DependencyGraphTool(_RepositoryTool):
+    name = "dependency_graph"
+    description = (
+        "Inspect declared Python module imports in a snapshot, capped at 500 edges. "
+        "Set source_root for a ZIP wrapper or src layout. Unresolved imports are "
+        "not necessarily external. This is not a call graph or runtime trace."
+    )
+    input_schema = DependencyGraphInput
+
+    async def execute(
+        self, arguments: BaseModel, context: ToolContext
+    ) -> dict[str, Any]:
+        parsed = DependencyGraphInput.model_validate(arguments)
+        snapshot = await self._snapshot(parsed.repository_id, context)
+        try:
+            return dependency_graph(snapshot, parsed.source_root).model_dump(
+                mode="json"
+            )
+        except ValueError as error:
+            raise ToolError(
+                "INVALID_SOURCE_ROOT", str(error), retryable=True
+            ) from error
 
 
 class SearchCodeTool(_RepositoryTool):

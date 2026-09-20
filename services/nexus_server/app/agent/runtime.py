@@ -400,7 +400,13 @@ class AgentRuntime:
         # but do not feed code-tool runs into automatic fact extraction.
         inspected_code = any(
             observation.tool
-            in {"list_repositories", "search_code", "read_file", "find_symbol"}
+            in {
+                "list_repositories",
+                "search_code",
+                "read_file",
+                "find_symbol",
+                "dependency_graph",
+            }
             for observation in run.context.observations
         )
         if self._memory_extractor is not None and not inspected_code:
@@ -501,6 +507,28 @@ class AgentRuntime:
                 + ("\nResults truncated." if last.output.get("truncated") else "")
                 + (
                     "\nSymbol index is incomplete."
+                    if last.output.get("incomplete_index")
+                    else ""
+                )
+            )
+        if last.tool == "dependency_graph":
+            edges = last.output.get("edges", [])
+            excerpts = "\n".join(
+                f"- {item['source']}:{item['line']} imports {item['module']} "
+                f"-> {item['target'] or item['resolution']}"
+                for item in edges[:20]
+            )
+            return (
+                f"Declared Python imports from {last.output['repository_id']} "
+                "(not a runtime or call graph):\n"
+                + (excerpts or "No indexed imports in this scope.")
+                + (
+                    "\nResults truncated; inspect the tool trace."
+                    if len(edges) > 20 or last.output.get("truncated")
+                    else ""
+                )
+                + (
+                    "\nSource index is incomplete."
                     if last.output.get("incomplete_index")
                     else ""
                 )

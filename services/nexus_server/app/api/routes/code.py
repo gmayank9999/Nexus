@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
+from app.code.graph import DependencyGraph, dependency_graph
 from app.code.indexer import MAX_ARCHIVE_BYTES, RepositoryImportError, index_archive
 from app.code.models import RepositorySnapshot, RepositorySummary
 from app.code.repository import summarize
@@ -12,6 +13,20 @@ from app.storage.resources import AppResources
 router = APIRouter(prefix="/repositories", tags=["code"])
 Workspace = Annotated[str, Query(min_length=1, max_length=100)]
 Resources = Annotated[AppResources, Depends(get_resources)]
+
+
+@router.get("/{repository_id}/dependencies")
+async def get_dependencies(
+    repository_id: str,
+    resources: Resources,
+    source_root: Annotated[str, Query(max_length=300)] = "",
+    user_id: Workspace = "local",
+) -> DependencyGraph:
+    snapshot = await _require(repository_id, resources, user_id)
+    try:
+        return dependency_graph(snapshot, source_root)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @router.post("", status_code=201)
