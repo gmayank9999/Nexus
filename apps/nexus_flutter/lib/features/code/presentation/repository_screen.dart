@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus_flutter/features/code/application/code_providers.dart';
+import 'package:nexus_flutter/features/code/presentation/dependency_panel.dart';
 
 class RepositoryScreen extends ConsumerStatefulWidget {
   const RepositoryScreen({required this.id, super.key});
@@ -56,6 +57,11 @@ class _RepositoryState extends ConsumerState<RepositoryScreen> {
     body: ListView(
       padding: const EdgeInsets.all(24),
       children: [
+        DependencyPanel(
+          key: ValueKey(widget.id),
+          id: widget.id,
+          openSource: _open,
+        ),
         TextField(
           controller: _query,
           maxLength: 100,

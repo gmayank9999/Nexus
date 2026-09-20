@@ -54,6 +54,28 @@ class CodeMatch {
 }
 
 typedef FileIndex = ({List<IndexedFile> files, int skipped});
+
+class ImportEdge {
+  ImportEdge.fromJson(Json json)
+    : source = json['source'] as String,
+      target = json['target'] as String?,
+      module = json['module'] as String,
+      line = json['line'] as int,
+      resolution = json['resolution'] as String,
+      moduleTruncated = json['module_truncated'] == true;
+  final String source;
+  final String? target;
+  final String module;
+  final int line;
+  final String resolution;
+  final bool moduleTruncated;
+}
+
+typedef ImportGraph = ({
+  List<ImportEdge> edges,
+  bool truncated,
+  bool incomplete,
+});
 typedef SearchResult = ({List<CodeMatch> matches, bool truncated});
 typedef SourceWindow = ({
   String content,
@@ -71,6 +93,7 @@ abstract interface class CodeApi {
     CancelToken cancel,
   );
   Future<FileIndex> files(String id);
+  Future<ImportGraph> dependencies(String id, String root);
   Future<SearchResult> search(String id, String query);
   Future<SourceWindow> read(String id, String path, int line);
 }
@@ -78,6 +101,25 @@ abstract interface class CodeApi {
 class DioCodeApi implements CodeApi {
   const DioCodeApi(this._dio);
   final Dio _dio;
+
+  @override
+  Future<ImportGraph> dependencies(String id, String root) async {
+    final response = await _dio.get<Json>(
+      '/api/v1/repositories/$id/dependencies',
+      queryParameters: {'source_root': root},
+    );
+    final json = response.data!;
+    return (
+      edges: (json['edges'] as List<dynamic>)
+          .map(
+            (value) =>
+                ImportEdge.fromJson(Map<String, dynamic>.from(value as Map)),
+          )
+          .toList(),
+      truncated: json['truncated'] == true,
+      incomplete: json['incomplete_index'] == true,
+    );
+  }
 
   @override
   Future<List<RepositoryInfo>> list() async {

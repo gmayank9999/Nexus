@@ -13,6 +13,61 @@ import 'package:nexus_flutter/features/code/presentation/repository_screen.dart'
 import 'package:nexus_flutter/features/code/presentation/upload_repository_dialog.dart';
 
 void main() {
+  testWidgets('dependency scope, warnings and source navigation', (
+    tester,
+  ) async {
+    final api = _Api();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [codeApiProvider.overrideWithValue(api)],
+        child: const MaterialApp(home: RepositoryScreen(id: 'repo_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(api.lastRoot, isNull);
+    await tester.tap(find.text('Python import dependencies'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Snapshot source root'),
+      'src',
+    );
+    await tester.tap(find.text('Load dependencies'));
+    await tester.pumpAndSettle();
+    expect(api.lastRoot, 'src');
+    expect(find.text('Source index is incomplete.'), findsOneWidget);
+    expect(find.text('Only the first 500 imports are shown.'), findsOneWidget);
+    await tester.tap(find.text('app.py:3 imports helper'));
+    await tester.pumpAndSettle();
+    expect(api.lastRead, (id: 'repo_1', path: 'app.py', line: 3));
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Read imported module'));
+    await tester.pumpAndSettle();
+    expect(api.lastRead, (id: 'repo_1', path: 'helper.py', line: 1));
+  });
+
+  testWidgets('dependency failure can retry without exposing server details', (
+    tester,
+  ) async {
+    final api = _Api()..failGraph = true;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [codeApiProvider.overrideWithValue(api)],
+        child: const MaterialApp(home: RepositoryScreen(id: 'repo_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Python import dependencies'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Load dependencies'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Could not load dependencies.'), findsOneWidget);
+    expect(find.textContaining('private-error'), findsNothing);
+    api.failGraph = false;
+    await tester.tap(find.text('Load dependencies'));
+    await tester.pumpAndSettle();
+    expect(find.text('app.py:3 imports helper'), findsOneWidget);
+  });
   test(
     'archive reader handles data-backed files and rejects oversize',
     () async {
@@ -206,7 +261,12 @@ void main() {
                 requestOptions: request,
                 data: request.method == 'POST'
                     ? {'id': 'repo_1', 'name': 'Test', 'file_count': 1}
-                    : {'matches': <dynamic>[], 'truncated': false},
+                    : {
+                        'matches': <dynamic>[],
+                        'edges': <dynamic>[],
+                        'truncated': false,
+                        'incomplete_index': true,
+                      },
               ),
             );
           },
@@ -215,6 +275,11 @@ void main() {
       final api = DioCodeApi(dio);
       await api.upload('Test', Uint8List.fromList([1]), CancelToken());
       await api.search('repo_1', 'a&b');
+      final graph = await api.dependencies('repo_1', 'wrapper/src');
+      expect(graph.edges, isEmpty);
+      expect(graph.incomplete, isTrue);
+      expect(requests[2].path, '/api/v1/repositories/repo_1/dependencies');
+      expect(requests[2].queryParameters, {'source_root': 'wrapper/src'});
       expect(requests[0].data, isA<FormData>());
       expect(requests[0].queryParameters, {'name': 'Test'});
       expect(requests[1].queryParameters, {'query': 'a&b'});
@@ -223,6 +288,27 @@ void main() {
 }
 
 class _Api implements CodeApi {
+  String? lastRoot;
+  bool failGraph = false;
+  @override
+  Future<ImportGraph> dependencies(String id, String root) async {
+    lastRoot = root;
+    if (failGraph) throw StateError('private-error');
+    return (
+      edges: [
+        ImportEdge.fromJson({
+          'source': 'app.py',
+          'line': 3,
+          'module': 'helper',
+          'target': 'helper.py',
+          'resolution': 'local_declared_module',
+        }),
+      ],
+      truncated: true,
+      incomplete: true,
+    );
+  }
+
   int uploads = 0;
   bool failUpload = false;
   Completer<void>? pendingUpload;
