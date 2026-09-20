@@ -82,8 +82,9 @@ The associated commits contain the full changed-file lists.
 
 Voice, code intelligence, scheduling, notifications, distributed execution,
 and automatic crash recovery remain outside this milestone. Existing document
-and memory features still need broader integration coverage, memory retrieval
-in planning, and citation presentation. Memory editing and workspace alignment
+and memory features still need broader integration coverage, automatic relevant
+memory injection, and citation presentation. Planner-selectable keyword retrieval
+is covered in [memory retrieval](memory-retrieval.md). Memory editing and workspace alignment
 are now covered in [memory controls](memory-controls.md). Their presence in the
 handoff should not be read as proof that every earlier-phase acceptance
 criterion has been verified. Real model inference was not exercised in this

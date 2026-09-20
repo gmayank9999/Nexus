@@ -58,6 +58,7 @@ this application is intended for trusted local use, not multi-tenant deployment.
 User confirmation is not proof that memory text is safe to execute.
 
 This closes the editing-control gap, not all Phase 4 acceptance criteria.
-Automatic relevant-memory retrieval during planning, stronger extraction policy,
+Planner-selectable [keyword retrieval](memory-retrieval.md) is now available.
+Automatic relevant-memory injection during planning, stronger extraction policy,
 and broader real-model evaluation remain open. Voice hardware verification and
 Phases 7–8 also remain unfinished.

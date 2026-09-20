@@ -227,6 +227,8 @@ See [security architecture](docs/architecture.md#security-boundaries).
 Saved memories can be corrected from the Memory screen. See
 [memory controls](docs/memory-controls.md) for workspace compatibility, editing
 semantics, and remaining memory integration work.
+The agent can also [search saved memories](docs/memory-retrieval.md) through a
+bounded, read-only tool with workspace scoping and provenance.
 
 - The core loop is implemented directly rather than hidden in an agent
   framework.
