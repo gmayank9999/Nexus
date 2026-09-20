@@ -465,4 +465,12 @@ class AgentRuntime:
             return f"Current time: {last.output.get('iso8601')}."
         if last.tool == "create_artifact":
             return f"Saved artifact: {last.output.get('title')}."
+        if last.tool == "search_memories":
+            memories = last.output.get("memories", [])
+            if not memories:
+                return "No matching saved memories in the bounded keyword search."
+            excerpts = "\n".join(
+                f"- {memory['content']} (memory {memory['id']})" for memory in memories
+            )
+            return f"Saved memory excerpts (not verified facts):\n{excerpts}"
         return f"Completed {len(run.context.observations)} tool step(s)."

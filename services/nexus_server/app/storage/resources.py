@@ -56,6 +56,7 @@ from app.tools.current_time import CurrentTimeTool
 from app.tools.read_document import ReadDocumentTool
 from app.tools.registry import ToolRegistry
 from app.tools.search_files import SearchFilesTool
+from app.tools.search_memories import SearchMemoriesTool
 from app.tools.tasks import CreateTaskTool, ListTasksTool
 from app.voice.provider import MockVoiceProvider, VoiceProvider, WhisperCppProvider
 from app.voice.session import VoiceService
@@ -131,6 +132,7 @@ class AppResources:
         tool_registry.register(CreateArtifactTool(artifact_repository))
         tool_registry.register(SearchFilesTool(doc_repository, embedder))
         tool_registry.register(ReadDocumentTool(doc_repository))
+        tool_registry.register(SearchMemoriesTool(memory_repository))
         agent_runtime = AgentRuntime(
             Planner(provider, tool_registry),
             Executor(provider, tool_registry),

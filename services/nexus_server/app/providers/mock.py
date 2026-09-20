@@ -62,6 +62,18 @@ class MockProvider:
     def _plan(payload: dict[str, object]) -> dict[str, object]:
         goal = str(payload.get("goal", "Complete the goal"))
         lowered = goal.lower()
+        if lowered.startswith("search memories for "):
+            return {
+                "goal": goal,
+                "steps": [
+                    {
+                        "id": "step_1",
+                        "title": "Search saved memories",
+                        "description": goal,
+                        "tool": "search_memories",
+                    }
+                ],
+            }
         if "study guide" in lowered or "study plan" in lowered:
             return {
                 "goal": goal,
@@ -125,7 +137,9 @@ class MockProvider:
         step_data = step if isinstance(step, dict) else {}
         tool = str(step_data.get("tool", "create_task"))
         arguments: dict[str, object]
-        if tool == "calculator":
+        if tool == "search_memories":
+            arguments = {"query": goal[len("search memories for ") :].strip()[:200]}
+        elif tool == "calculator":
             match = re.search(r"(?:calculate\s*)?([\d\s().+*/%-]+)", goal.lower())
             expression = match.group(1).strip() if match else "0"
             arguments = {"expression": expression}
