@@ -56,6 +56,12 @@ from app.storage.task_repository import (
     TaskRepository,
 )
 from app.tools.calculator import CalculatorTool
+from app.tools.code import (
+    FindSymbolTool,
+    ListRepositoriesTool,
+    ReadFileTool,
+    SearchCodeTool,
+)
 from app.tools.create_artifact import CreateArtifactTool
 from app.tools.current_time import CurrentTimeTool
 from app.tools.read_document import ReadDocumentTool
@@ -142,6 +148,10 @@ class AppResources:
         tool_registry.register(SearchFilesTool(doc_repository, embedder))
         tool_registry.register(ReadDocumentTool(doc_repository))
         tool_registry.register(SearchMemoriesTool(memory_repository))
+        tool_registry.register(ListRepositoriesTool(code_repository))
+        tool_registry.register(SearchCodeTool(code_repository))
+        tool_registry.register(ReadFileTool(code_repository))
+        tool_registry.register(FindSymbolTool(code_repository))
         agent_runtime = AgentRuntime(
             Planner(provider, tool_registry),
             Executor(provider, tool_registry),
