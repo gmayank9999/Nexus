@@ -13,6 +13,11 @@ from app.agent.models import AgentRun
 from app.agent.planner import Planner
 from app.agent.repository import InMemoryRunRepository, RunRepository, SqlRunRepository
 from app.agent.runtime import AgentRuntime
+from app.code.repository import (
+    CodeRepository,
+    InMemoryCodeRepository,
+    SqlCodeRepository,
+)
 from app.config.settings import Settings
 from app.documents.embeddings import LocalEmbeddingProvider
 from app.documents.indexer import DocumentIndexer
@@ -85,6 +90,8 @@ class AppResources:
     memory_repository: MemoryRepository
     memory_extractor: MemoryExtractor
     voice_service: VoiceService
+    code_repository: CodeRepository
+    code_import_slots: asyncio.Semaphore
 
     @classmethod
     def create(cls, settings: Settings) -> "AppResources":
@@ -113,6 +120,7 @@ class AppResources:
             event_repository: EventRepository = InMemoryEventRepository()
             doc_repository: DocumentRepository = InMemoryDocumentRepository()
             memory_repository: MemoryRepository = InMemoryMemoryRepository()
+            code_repository: CodeRepository = InMemoryCodeRepository()
         else:
             task_repository = SqlTaskRepository(database)
             artifact_repository = SqlArtifactRepository(database)
@@ -120,6 +128,7 @@ class AppResources:
             event_repository = SqlEventRepository(database)
             doc_repository = SqlDocumentRepository(database)
             memory_repository = SqlMemoryRepository(database)
+            code_repository = SqlCodeRepository(database)
         event_bus = EventBus(event_repository)
         embedder = LocalEmbeddingProvider()
         doc_indexer = DocumentIndexer(doc_repository, embedder)
@@ -172,6 +181,8 @@ class AppResources:
             memory_repository=memory_repository,
             memory_extractor=memory_extractor,
             voice_service=voice_service,
+            code_repository=code_repository,
+            code_import_slots=asyncio.Semaphore(2),
         )
 
     async def initialize(self) -> None:
