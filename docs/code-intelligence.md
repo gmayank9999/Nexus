@@ -1,8 +1,8 @@
 # Code intelligence: repository snapshot foundation
 
 Phase 7 now includes repository ingestion and a Flutter source browser.
-Agent code tools, dependency/call graphs, and source-grounded flow explanations
-are not implemented yet. This milestone does
+Read-only agent code tools are now registered. Dependency/call graphs and
+validated source-grounded flow explanations are not implemented yet. This milestone does
 not satisfy the full “Trace login flow” acceptance criterion.
 
 ## Import and inspect
@@ -90,12 +90,62 @@ integrity identifiers, not a guarantee about source trustworthiness.
   still include excluded entries.
 
 Exclusions are not a secret scanner. Credentials in ordinary source files will
-be persisted if uploaded. No source is sent to an LLM in this slice. Configure
+be persisted if uploaded. Import and browser endpoints do not send source to an
+LLM. Agent code-tool excerpts may be sent to the configured LLM during later
+execution/replanning and may enter follow-up context. Configure
 request-body limits at the deployment proxy as well: multipart parsing/spooling
 happens before the route's bounded read. Malicious source parsing is bounded by
 input size and concurrency, but is not isolated in a sandboxed worker process.
 
 ## Verification
+
+### Agent tools
+
+The planner can select four read-only tools:
+
+- `list_repositories`: up to 20 recent snapshots in the mission workspace.
+- `search_code`: repository ID and literal query; up to 20 path/line excerpts,
+  each bounded to 300 characters and carrying its source SHA-256.
+- `find_symbol`: repository ID and name substring; up to 20 indexed Python
+  declarations. Reports an incomplete index for non-Python, invalid, or capped
+  files. This does not resolve references or calls.
+- `read_file`: repository ID, exact stored path, and optional starting line;
+  at most 200 lines/20,000 characters. This is not a general filesystem reader.
+
+Arguments cannot override the mission workspace. Missing and other-workspace
+snapshots both produce `REPOSITORY_NOT_FOUND`. Schema validation rejects blank
+queries, oversized queries, invalid line numbers, and unexpected arguments.
+Tool timeouts and permission checks are shared with other agent tools.
+
+Try these goals in mock mode after importing a snapshot:
+
+```text
+List repositories
+Search code in repo_<actual ID> for login
+Find symbol in repo_<actual ID> for login
+```
+
+Replace the placeholder with an ID returned by the first goal or import API.
+These explicit fixtures execute real repository reads and return cited excerpts
+in the mission reply/timeline; they do not simulate general code understanding.
+`read_file` is registered for model-selected plans but has no dedicated mock goal
+fixture. No code is executed and the demo does not create tasks or artifacts.
+
+Source/comments are untrusted context, not instructions or approval. Code-tool
+observations remain persisted in mission history. Runs that invoke any of these
+four tools skip automatic personal-memory extraction so repository evidence is
+not fed to the fact extractor. This applies to the invoking run, not arbitrary
+later goals that manually quote source or reuse follow-up excerpts. Existing
+stored memories and historical traces are not changed.
+
+The agent-tool slice passed 136 backend tests, lint, formatting, and strict
+typing. Added coverage includes tool registration/integration, source locations,
+hashes, workspace isolation, invalid arguments, arbitrary-path rejection,
+truncation, incomplete symbols, mock missions, and personal-memory extraction
+suppression. No frontend code changed; real-model behavior and live PostgreSQL
+checks were not rerun.
+
+### Earlier slices
 
 124 backend tests passed, including 20 new repository tests covering Python
 locations, syntax-error fallback, exclusions, unsafe paths, symlinks, collisions,

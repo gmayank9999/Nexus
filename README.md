@@ -247,7 +247,7 @@ bounded, read-only tool with workspace scoping and provenance.
 - **Phase 4 — Memory:** policy, retrieval, user controls
 - **Phase 5 — Missions:** history, progress, persistent tasks and artifacts
 - **Phase 6 — Voice:** speech input, device read-aloud, and explicit follow-up context (in progress)
-- **Phase 7 — Code intelligence:** ZIP import, indexing, and source browser; agent tools/graphs pending
+- **Phase 7 — Code intelligence:** ZIP import, source browser, read-only agent tools; graphs pending
 - **Phase 8 — Autonomous missions:** scheduling, retries, notifications
 
 Computer control, browser automation, and code execution remain out of scope.
