@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
+from app.code.calls import CallSites, call_sites
 from app.code.graph import DependencyGraph, dependency_graph
 from app.code.indexer import MAX_ARCHIVE_BYTES, RepositoryImportError, index_archive
 from app.code.models import RepositorySnapshot, RepositorySummary
@@ -13,6 +14,15 @@ from app.storage.resources import AppResources
 router = APIRouter(prefix="/repositories", tags=["code"])
 Workspace = Annotated[str, Query(min_length=1, max_length=100)]
 Resources = Annotated[AppResources, Depends(get_resources)]
+
+
+@router.get("/{repository_id}/calls")
+async def get_calls(
+    repository_id: str,
+    resources: Resources,
+    user_id: Workspace = "local",
+) -> CallSites:
+    return call_sites(await _require(repository_id, resources, user_id))
 
 
 @router.get("/{repository_id}/dependencies")

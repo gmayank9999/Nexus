@@ -406,6 +406,7 @@ class AgentRuntime:
                 "read_file",
                 "find_symbol",
                 "dependency_graph",
+                "call_sites",
             }
             for observation in run.context.observations
         )
@@ -507,6 +508,27 @@ class AgentRuntime:
                 + ("\nResults truncated." if last.output.get("truncated") else "")
                 + (
                     "\nSymbol index is incomplete."
+                    if last.output.get("incomplete_index")
+                    else ""
+                )
+            )
+        if last.tool == "call_sites":
+            calls = last.output.get("calls", [])
+            excerpts = "\n".join(
+                f"- {item['path']}:{item['line']} [{item['scope']}] {item['callee']}"
+                for item in calls[:20]
+            )
+            return (
+                f"Syntactic calls from {last.output['repository_id']} "
+                "(lexical scopes; not resolved targets or execution order):\n"
+                + (excerpts or "No indexed call sites.")
+                + (
+                    "\nResults bounded; inspect the tool trace."
+                    if len(calls) > 20 or last.output.get("truncated")
+                    else ""
+                )
+                + (
+                    "\nCall index is incomplete; older snapshots need re-import."
                     if last.output.get("incomplete_index")
                     else ""
                 )

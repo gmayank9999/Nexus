@@ -9,7 +9,13 @@ import zipfile
 import zlib
 from pathlib import PurePosixPath
 
-from app.code.models import CodeImport, CodeSymbol, RepositorySnapshot, SourceFile
+from app.code.models import (
+    CodeCall,
+    CodeImport,
+    CodeSymbol,
+    RepositorySnapshot,
+    SourceFile,
+)
 
 MAX_ARCHIVE_BYTES = 5 * 1024 * 1024
 MAX_TOTAL_BYTES = 10 * 1024 * 1024
@@ -141,11 +147,27 @@ def _index_python(source: SourceFile) -> None:
     except (SyntaxError, ValueError, RecursionError):
         source.parse_error = True
         return
+    source.calls_indexed = True
     # Iterative traversal avoids recursion on deeply nested uploaded syntax.
     pending: list[tuple[ast.AST, str]] = [(tree, "")]
     while pending:
         node, scope = pending.pop()
         next_scope = scope
+        if isinstance(node, ast.Call):
+            if len(source.calls) < 500:
+                callee, dynamic, truncated = _callee_label(node.func)
+                source.calls.append(
+                    CodeCall(
+                        scope=scope[:300] or "<module>",
+                        callee=callee,
+                        line=node.lineno,
+                        column=node.col_offset,
+                        dynamic=dynamic,
+                        label_truncated=truncated or len(scope) > 300,
+                    )
+                )
+            else:
+                source.calls_truncated = True
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
             next_scope = f"{scope}.{node.name}" if scope else node.name
             source.symbols.append(
@@ -179,3 +201,21 @@ def _index_python(source: SourceFile) -> None:
         )
     source.symbols.sort(key=lambda item: (item.line, item.name))
     source.imports.sort(key=lambda item: (item.line, item.module))
+    source.calls.sort(key=lambda item: (item.line, item.column))
+
+
+def _callee_label(node: ast.expr) -> tuple[str, bool, bool]:
+    """Describe syntax only; never resolve bindings or stringify arguments."""
+    parts: list[str] = []
+    size = 0
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        size += len(node.attr) + 1
+        if size > 300:
+            return "<complex attribute call>", True, True
+        node = node.value
+    if not isinstance(node, ast.Name):
+        return "<dynamic expression>", True, False
+    parts.append(node.id)
+    label = ".".join(reversed(parts))
+    return label[:300], False, len(label) > 300

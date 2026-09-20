@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.code.calls import call_sites
 from app.code.graph import dependency_graph
 from app.code.models import RepositorySnapshot
 from app.code.repository import CodeRepository
@@ -97,6 +98,25 @@ class DependencyGraphTool(_RepositoryTool):
             raise ToolError(
                 "INVALID_SOURCE_ROOT", str(error), retryable=True
             ) from error
+
+
+class CallSitesTool(_RepositoryTool):
+    name = "call_sites"
+    description = (
+        "List up to 500 Python syntactic call sites with lexical scopes and source "
+        "citations. Names are NOT resolved targets or execution order. Old snapshots "
+        "may require re-import. Dynamic expressions remain unresolved."
+    )
+    input_schema = RepositoryInput
+
+    async def execute(
+        self,
+        arguments: BaseModel,
+        context: ToolContext,
+    ) -> dict[str, Any]:
+        parsed = RepositoryInput.model_validate(arguments)
+        snapshot = await self._snapshot(parsed.repository_id, context)
+        return call_sites(snapshot).model_dump(mode="json")
 
 
 class SearchCodeTool(_RepositoryTool):

@@ -16,6 +16,15 @@ class CodeImport(BaseModel):
     line: int
 
 
+class CodeCall(BaseModel):
+    scope: str
+    callee: str
+    line: int
+    column: int
+    dynamic: bool = False
+    label_truncated: bool = False
+
+
 class SourceFile(BaseModel):
     path: str
     language: str
@@ -23,6 +32,9 @@ class SourceFile(BaseModel):
     sha256: str
     symbols: list[CodeSymbol] = Field(default_factory=list)
     imports: list[CodeImport] = Field(default_factory=list)
+    calls: list[CodeCall] = Field(default_factory=list)
+    calls_indexed: bool = False
+    calls_truncated: bool = False
     parse_error: bool = False
     index_truncated: bool = False
 

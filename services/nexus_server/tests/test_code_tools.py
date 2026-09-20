@@ -13,6 +13,7 @@ from app.memory.extractor import MemoryExtractor
 from app.providers.mock import MockProvider
 from app.tools.base import ToolContext, ToolError
 from app.tools.code import (
+    CallSitesTool,
     DependencyGraphTool,
     FindSymbolTool,
     ListRepositoriesTool,
@@ -35,6 +36,7 @@ async def tools_for(files: dict[str, str]):
         ReadFileTool,
         FindSymbolTool,
         DependencyGraphTool,
+        CallSitesTool,
     ]:
         tools.register(tool(repository))
     return tools, snapshot.id
@@ -72,6 +74,7 @@ async def test_tools_return_cited_read_only_evidence() -> None:
         ("find_symbol", {"query": "login"}),
         ("read_file", {"path": "app.py"}),
         ("dependency_graph", {}),
+        ("call_sites", {}),
     ],
 )
 async def test_other_workspace_and_missing_snapshot_match(
