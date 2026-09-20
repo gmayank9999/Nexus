@@ -1,11 +1,32 @@
 # Code intelligence: repository snapshot foundation
 
-Phase 7 has started with backend-only repository ingestion and source lookup.
-The Flutter repository browser, agent code tools, dependency/call graphs, and
-source-grounded flow explanations are not implemented yet. This milestone does
+Phase 7 now includes repository ingestion and a Flutter source browser.
+Agent code tools, dependency/call graphs, and source-grounded flow explanations
+are not implemented yet. This milestone does
 not satisfy the full “Trace login flow” acceptance criterion.
 
 ## Import and inspect
+
+In Flutter, open **Knowledge → Browse code repositories → Import ZIP**. Choose
+a ZIP, review its filename and snapshot name, then press **Upload snapshot**.
+Selecting a file does not send it to the server. The UI checks the 5 MiB limit
+before reading and again while collecting bytes; the backend remains authoritative
+for ZIP structure and indexing limits. There are no automatic upload retries.
+If a request fails after a possible server commit, refresh before retrying to
+avoid duplicate snapshots.
+
+Open a snapshot to expand files and Python symbols. Search returns matching
+path/line locations; selecting a match or symbol opens a plain-text source window
+with its SHA-256. Source is never rendered as HTML. Windows are bounded to 200
+lines / 20,000 characters, and a long line can be cut. “Next 200 lines” moves to
+the next line window, not the remainder of a cut line. Clearing search returns
+to browsing. Query/snapshot-keyed providers prevent late results from replacing
+a newer selection.
+
+The picker uses Flutter's [file_selector package](https://pub.dev/packages/file_selector).
+Native file-dialog behavior and device permissions still require device testing.
+The Knowledge document-upload placeholder is unchanged; this picker is currently
+connected only to repository imports.
 
 Upload a ZIP that you have reviewed for secrets. Example from PowerShell:
 
@@ -81,7 +102,17 @@ locations, syntax-error fallback, exclusions, unsafe paths, symlinks, collisions
 upload/decompression/file/count limits, source lookup, search limits, ownership,
 SQL reopen, and cancellation/admission behavior. Backend lint, formatting, and
 strict typing pass. Persistence tests use SQLite; PostgreSQL and browser/device
-runtime checks were not rerun. No frontend code changed.
+runtime checks were not rerun for the backend slice.
+
+The subsequent browser slice passed 60 Flutter tests, static analysis, formatting,
+and a release web build. Added tests cover selection versus upload confirmation,
+oversize/cancel handling, duplicate-submit prevention, failure disclosure, source
+locations, literal source rendering, search limits, stale responses, bounded
+XFile reads, and multipart/query serialization. Tests inject the picker/API;
+they do not prove real native dialog or live browser-to-backend behavior. No
+backend code changed in that slice. Windows builds remain subject to the existing
+Visual Studio C++ prerequisite; browser visual QA and real-device acceptance are
+still open.
 
 The source tables are created by the existing schema initialization path. No
 existing tables or user data are rewritten. General versioned migrations remain
