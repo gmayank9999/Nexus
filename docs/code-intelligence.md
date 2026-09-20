@@ -165,9 +165,27 @@ and call relationships are not inferred. Source is never imported or executed.
 Results cap at 500 edges with truncation disclosure. Module labels cap at 300
 characters with per-label flags. Non-Python, invalid, skipped, or capped indexing
 is disclosed as incomplete. Workspace scoping and the automatic personal-memory
-extraction exclusion also apply to this tool. Graph UI and validated call-flow
+extraction exclusion also apply to this tool. Validated call-flow
 explanations remain pending. This backend slice passed 150 tests; frontend,
 real-model, and live PostgreSQL acceptance were not rerun.
+
+### Browsing dependencies
+
+Open a repository, expand **Python import dependencies**, optionally enter a
+snapshot source root, and press **Load dependencies**. The view lists declared
+imports with their source locations and local targets or unresolved reasons.
+Tap an import to read its source line; the imported-module button opens a
+resolved target. Incomplete indexes and capped results are disclosed. This is
+an import list, not a runtime trace or an interactive node-layout visualization.
+Loading is explicit, failures retain the root for retry, and requests are keyed
+by repository and root to keep results scoped correctly. Native-device and live
+browser-to-backend acceptance remain unverified.
+
+The dependency-browser slice passed 62 Flutter tests, static analysis, and a
+release web build (with the existing CupertinoIcons font warning).
+Coverage includes explicit loading, source-root serialization, index warnings,
+source/target navigation, and error retry without exposing server details.
+No backend code changed in this slice.
 
 ### Earlier slices
 
