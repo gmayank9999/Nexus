@@ -1,7 +1,7 @@
 # Code intelligence: repository snapshot foundation
 
 Phase 7 now includes repository ingestion and a Flutter source browser.
-Read-only agent code tools are now registered. Dependency/call graphs and
+Read-only agent code tools and a Python declared-import graph are now registered. Call graphs and
 validated source-grounded flow explanations are not implemented yet. This milestone does
 not satisfy the full “Trace login flow” acceptance criterion.
 
@@ -133,7 +133,7 @@ fixture. No code is executed and the demo does not create tasks or artifacts.
 
 Source/comments are untrusted context, not instructions or approval. Code-tool
 observations remain persisted in mission history. Runs that invoke any of these
-four tools skip automatic personal-memory extraction so repository evidence is
+five tools skip automatic personal-memory extraction so repository evidence is
 not fed to the fact extractor. This applies to the invoking run, not arbitrary
 later goals that manually quote source or reuse follow-up excerpts. Existing
 stored memories and historical traces are not changed.
@@ -144,6 +144,30 @@ hashes, workspace isolation, invalid arguments, arbitrary-path rejection,
 truncation, incomplete symbols, mock missions, and personal-memory extraction
 suppression. No frontend code changed; real-model behavior and live PostgreSQL
 checks were not rerun.
+
+## Python dependency graph
+
+`GET /api/v1/repositories/{id}/dependencies?source_root=src` returns a bounded
+declared-module graph. The optional root is an exact relative directory inside
+the snapshot, useful for ZIP wrappers or src layouts; it is never a disk path.
+The registered read-only `dependency_graph` agent tool accepts `repository_id`
+and optional `source_root`. It has no dedicated mock-mode goal fixture yet.
+
+Edges include source path, import line, source hash, declared module, resolution,
+and a local target when exactly one indexed module file or package initializer
+matches. Relative imports use the importing file's package directory. Ambiguous,
+out-of-root, and unresolved imports remain explicit; unresolved does not mean
+external. Imported member names are not indexed: `from pkg import child` points
+only to the declared `pkg`, while `from . import child` remains unresolved.
+Namespace packages without initializers, dynamic imports, runtime path changes,
+and call relationships are not inferred. Source is never imported or executed.
+
+Results cap at 500 edges with truncation disclosure. Module labels cap at 300
+characters with per-label flags. Non-Python, invalid, skipped, or capped indexing
+is disclosed as incomplete. Workspace scoping and the automatic personal-memory
+extraction exclusion also apply to this tool. Graph UI and validated call-flow
+explanations remain pending. This backend slice passed 150 tests; frontend,
+real-model, and live PostgreSQL acceptance were not rerun.
 
 ### Earlier slices
 
