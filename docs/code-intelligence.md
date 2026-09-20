@@ -133,7 +133,7 @@ fixture. No code is executed and the demo does not create tasks or artifacts.
 
 Source/comments are untrusted context, not instructions or approval. Code-tool
 observations remain persisted in mission history. Runs that invoke any of these
-five tools skip automatic personal-memory extraction so repository evidence is
+six tools skip automatic personal-memory extraction so repository evidence is
 not fed to the fact extractor. This applies to the invoking run, not arbitrary
 later goals that manually quote source or reuse follow-up excerpts. Existing
 stored memories and historical traces are not changed.
@@ -186,6 +186,35 @@ release web build (with the existing CupertinoIcons font warning).
 Coverage includes explicit loading, source-root serialization, index warnings,
 source/target navigation, and error retry without exposing server details.
 No backend code changed in this slice.
+
+## Python call-site evidence
+
+New ZIP imports also index Python call expressions. The read-only
+`GET /api/v1/repositories/{id}/calls` endpoint and `call_sites` agent tool return
+up to 500 call sites with path, line, zero-based UTF-8 byte column, source hash,
+lexical scope, and callee label. Each file also has a 500-call index cap; capped,
+unsupported, invalid, or older indexes are explicitly incomplete. Names and
+scope labels are bounded to 300 characters, with truncation disclosure.
+
+This is syntactic evidence, **not a resolved call graph**. `client.save()` records
+that expression, not the identity of the object or method at runtime. Subscript,
+factory-result, and other dynamic callees remain explicitly unresolved. Aliases,
+inheritance, rebinding, callbacks, implicit decorator calls, and execution order
+are not resolved. Lexical scope does not imply execution context: decorators and
+default arguments can run outside their enclosing function's execution. Call
+arguments and literals are not included in labels, and source is never executed.
+
+Stored snapshots remain immutable and compatible. Snapshots imported before this
+feature need re-import to obtain call evidence; they are not silently reported
+as complete empty call indexes. Workspace isolation and the personal-memory
+extraction exclusion apply to this tool. It is available to model-selected plans
+but has no dedicated mock-mode goal fixture or Flutter call browser yet.
+
+This slice passed 157 backend tests, lint, formatting, and strict typing. Tests cover lexical
+scopes, async/nested functions, dynamic expressions, source citations, budgets,
+legacy snapshots, and API/tool workspace isolation. No frontend code changed;
+real-model and live PostgreSQL checks were not rerun. Resolved call graphs and
+the full source-grounded “Trace login flow” acceptance criterion remain open.
 
 ### Earlier slices
 
