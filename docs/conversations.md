@@ -87,7 +87,8 @@ not a real microphone, speaker, or browser speech engine. See the existing
 
 Phase 6 remains in progress: real-device/model acceptance, safe native Windows
 speech output, incremental recognition/full-duplex interaction, and self-hosted
-speech output remain open. Phases 7 and 8 have not been implemented. Earlier
+speech output remain open. Phase 7 now has a [repository import backend](code-intelligence.md);
+its graphs/UI and Phase 8 remain unfinished. Earlier
 memory/RAG acceptance gaps remain in [mission notes](missions.md#remaining-work).
 
 ## Implementation locations

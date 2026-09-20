@@ -247,10 +247,12 @@ bounded, read-only tool with workspace scoping and provenance.
 - **Phase 4 — Memory:** policy, retrieval, user controls
 - **Phase 5 — Missions:** history, progress, persistent tasks and artifacts
 - **Phase 6 — Voice:** speech input, device read-aloud, and explicit follow-up context (in progress)
-- **Phase 7 — Code intelligence:** repository indexing and source graphs
+- **Phase 7 — Code intelligence:** backend ZIP import/index/search started; graphs and UI pending
 - **Phase 8 — Autonomous missions:** scheduling, retries, notifications
 
 Computer control, browser automation, and code execution remain out of scope.
+See [code intelligence](docs/code-intelligence.md) for repository upload APIs,
+source-index limits, and the remaining Phase 7 work.
 Backend voice input is disabled by default; speech models are configured
 explicitly and never downloaded automatically. Device read-aloud is opt-in per
 reply and may use the system speech engine's network services.
