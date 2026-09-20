@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nexus_flutter/features/code/presentation/repositories_screen.dart';
+import 'package:nexus_flutter/features/code/presentation/repository_screen.dart';
 import 'package:nexus_flutter/features/home/presentation/home_screen.dart';
 import 'package:nexus_flutter/features/knowledge/presentation/knowledge_screen.dart';
 import 'package:nexus_flutter/features/memory/presentation/memory_screen.dart';
@@ -12,6 +14,17 @@ import 'package:nexus_flutter/routing/app_shell.dart';
 final appRouter = GoRouter(
   initialLocation: '/home',
   routes: [
+    GoRoute(
+      path: '/repositories',
+      builder: (context, state) => const RepositoriesScreen(),
+      routes: [
+        GoRoute(
+          path: ':id',
+          builder: (context, state) =>
+              RepositoryScreen(id: state.pathParameters['id']!),
+        ),
+      ],
+    ),
     GoRoute(
       path: '/tasks',
       builder: (context, state) => OutputsScreen(

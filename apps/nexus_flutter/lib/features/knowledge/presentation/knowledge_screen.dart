@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nexus_flutter/features/knowledge/application/knowledge_controller.dart';
 import 'package:nexus_flutter/features/knowledge/domain/knowledge_document.dart';
 
@@ -46,6 +47,11 @@ class KnowledgeScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/repositories'),
+                icon: const Icon(Icons.code),
+                label: const Text('Browse code repositories'),
+              ),
               state.when(
                 loading: () => const _LoadingPlaceholder(),
                 error: (err, _) => _ErrorCard(message: err.toString()),
