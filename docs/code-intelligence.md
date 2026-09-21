@@ -123,6 +123,9 @@ Try these goals in mock mode after importing a snapshot:
 List repositories
 Search code in repo_<actual ID> for login
 Find symbol in repo_<actual ID> for login
+Call sites in repo_<actual ID>
+Dependencies in repo_<actual ID>
+Dependencies in repo_<actual ID> under src
 ```
 
 Replace the placeholder with an ID returned by the first goal or import API.
@@ -151,7 +154,8 @@ checks were not rerun.
 declared-module graph. The optional root is an exact relative directory inside
 the snapshot, useful for ZIP wrappers or src layouts; it is never a disk path.
 The registered read-only `dependency_graph` agent tool accepts `repository_id`
-and optional `source_root`. It has no dedicated mock-mode goal fixture yet.
+and optional `source_root`. The explicit mock goals above support both the ZIP
+root and a supplied source root.
 
 Edges include source path, import line, source hash, declared module, resolution,
 and a local target when exactly one indexed module file or package initializer
@@ -208,7 +212,18 @@ Stored snapshots remain immutable and compatible. Snapshots imported before this
 feature need re-import to obtain call evidence; they are not silently reported
 as complete empty call indexes. Workspace isolation and the personal-memory
 extraction exclusion apply to this tool. It is available to model-selected plans
-but has no dedicated mock-mode goal fixture yet.
+and through the explicit `Call sites in repo_<actual ID>` mock goal.
+
+These mock inspection missions read the actual uploaded snapshot, return bounded
+source-cited replies, and retain the complete bounded tool result in the mission
+trace. They do not infer resolved call targets or execution order, and do not
+implement a general natural-language flow explanation. Integration coverage
+checks upload-to-mission results, reply limits, and personal-memory extraction
+suppression for both call-site and dependency inspection.
+
+The mock mission integration slice passed 162 backend tests, lint, formatting,
+and strict typing. Frontend code was unchanged; real-model and live PostgreSQL
+acceptance were not rerun.
 
 In Flutter, expand **Python call sites** inside a repository and press
 **Load call sites**. Each entry opens its cited source line. Dynamic expressions,
