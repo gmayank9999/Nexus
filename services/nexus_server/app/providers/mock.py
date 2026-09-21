@@ -91,6 +91,18 @@ class MockProvider:
     def _plan(payload: dict[str, object]) -> dict[str, object]:
         goal = str(payload.get("goal", "Complete the goal"))
         lowered = goal.lower()
+        if lowered.startswith("search documents for "):
+            return {
+                "goal": goal,
+                "steps": [
+                    {
+                        "id": "step_1",
+                        "title": "Search uploaded documents",
+                        "description": goal,
+                        "tool": "search_files",
+                    }
+                ],
+            }
         graph_request = _graph_request(goal)
         if graph_request is not None:
             return {
@@ -227,6 +239,8 @@ class MockProvider:
                     ),
                 }
             arguments = {"repository_id": match.group(1), "query": match.group(2)[:100]}
+        elif tool == "search_files":
+            arguments = {"query": goal[len("search documents for ") :].strip()[:500]}
         elif tool == "search_memories":
             arguments = {"query": goal[len("search memories for ") :].strip()[:200]}
         elif tool == "calculator":

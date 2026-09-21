@@ -488,6 +488,16 @@ class AgentRuntime:
                 f"- {memory['content']} (memory {memory['id']})" for memory in memories
             )
             return f"Saved memory excerpts (not verified facts):\n{excerpts}"
+        if last.tool == "search_files":
+            matches = last.output.get("matches", [])
+            return "Document search excerpts (not a verified answer):\n" + (
+                "\n".join(
+                    f"- {match['snippet']} [Source: {match['title']}; "
+                    f"document {match['document_id']}; chunk {match['chunk_id']}]"
+                    for match in matches
+                )
+                or "No indexed documents matched in this workspace."
+            )
         if last.tool == "list_repositories":
             repositories = last.output.get("repositories", [])
             return "Imported repository snapshots (up to 20):\n" + (
