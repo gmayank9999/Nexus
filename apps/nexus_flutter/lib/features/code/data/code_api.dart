@@ -55,6 +55,24 @@ class CodeMatch {
 
 typedef FileIndex = ({List<IndexedFile> files, int skipped});
 
+class CallSite {
+  CallSite.fromJson(Json json)
+    : path = json['path'] as String,
+      line = json['line'] as int,
+      scope = json['scope'] as String,
+      callee = json['callee'] as String,
+      dynamicExpression = json['dynamic'] == true,
+      labelTruncated = json['label_truncated'] == true;
+  final String path;
+  final int line;
+  final String scope;
+  final String callee;
+  final bool dynamicExpression;
+  final bool labelTruncated;
+}
+
+typedef CallIndex = ({List<CallSite> calls, bool truncated, bool incomplete});
+
 class ImportEdge {
   ImportEdge.fromJson(Json json)
     : source = json['source'] as String,
@@ -93,6 +111,7 @@ abstract interface class CodeApi {
     CancelToken cancel,
   );
   Future<FileIndex> files(String id);
+  Future<CallIndex> calls(String id);
   Future<ImportGraph> dependencies(String id, String root);
   Future<SearchResult> search(String id, String query);
   Future<SourceWindow> read(String id, String path, int line);
@@ -101,6 +120,22 @@ abstract interface class CodeApi {
 class DioCodeApi implements CodeApi {
   const DioCodeApi(this._dio);
   final Dio _dio;
+
+  @override
+  Future<CallIndex> calls(String id) async {
+    final response = await _dio.get<Json>('/api/v1/repositories/$id/calls');
+    final json = response.data!;
+    return (
+      calls: (json['calls'] as List<dynamic>)
+          .map(
+            (value) =>
+                CallSite.fromJson(Map<String, dynamic>.from(value as Map)),
+          )
+          .toList(),
+      truncated: json['truncated'] == true,
+      incomplete: json['incomplete_index'] == true,
+    );
+  }
 
   @override
   Future<ImportGraph> dependencies(String id, String root) async {

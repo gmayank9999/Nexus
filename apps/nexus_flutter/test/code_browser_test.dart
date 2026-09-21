@@ -13,6 +13,67 @@ import 'package:nexus_flutter/features/code/presentation/repository_screen.dart'
 import 'package:nexus_flutter/features/code/presentation/upload_repository_dialog.dart';
 
 void main() {
+  testWidgets('call sites load explicitly and open cited source', (
+    tester,
+  ) async {
+    final api = _Api();
+    await tester.binding.setSurfaceSize(const Size(1000, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [codeApiProvider.overrideWithValue(api)],
+        child: const MaterialApp(home: RepositoryScreen(id: 'repo_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(api.callLoads, 0);
+    await tester.tap(find.text('Python call sites'));
+    await tester.pumpAndSettle();
+    expect(api.callLoads, 0);
+    await tester.tap(find.text('Load call sites'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Call index is incomplete.'), findsOneWidget);
+    expect(find.textContaining('Call results are capped'), findsOneWidget);
+    expect(
+      find.textContaining('Dynamic expression: unresolved'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Scope or callee label truncated'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('app.py:4 calls <dynamic expression>'));
+    await tester.pumpAndSettle();
+    expect(api.lastRead, (id: 'repo_1', path: 'app.py', line: 4));
+  });
+
+  testWidgets('call-site failure retries and empty indexes stay qualified', (
+    tester,
+  ) async {
+    final api = _Api()..failCalls = true;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [codeApiProvider.overrideWithValue(api)],
+        child: const MaterialApp(home: RepositoryScreen(id: 'repo_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Python call sites'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Load call sites'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Could not load call sites.'), findsOneWidget);
+    expect(find.textContaining('private-call-error'), findsNothing);
+    api.failCalls = false;
+    api.emptyCalls = true;
+    await tester.tap(find.text('Load call sites'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('This does not prove there are no calls.'),
+      findsOneWidget,
+    );
+    expect(api.callLoads, 2);
+  });
   testWidgets('dependency scope, warnings and source navigation', (
     tester,
   ) async {
@@ -266,6 +327,7 @@ void main() {
                         'edges': <dynamic>[],
                         'truncated': false,
                         'incomplete_index': true,
+                        'calls': <dynamic>[],
                       },
               ),
             );
@@ -280,6 +342,10 @@ void main() {
       expect(graph.incomplete, isTrue);
       expect(requests[2].path, '/api/v1/repositories/repo_1/dependencies');
       expect(requests[2].queryParameters, {'source_root': 'wrapper/src'});
+      final calls = await api.calls('repo_1');
+      expect(requests[3].path, '/api/v1/repositories/repo_1/calls');
+      expect(calls.calls, isEmpty);
+      expect(calls.incomplete, isTrue);
       expect(requests[0].data, isA<FormData>());
       expect(requests[0].queryParameters, {'name': 'Test'});
       expect(requests[1].queryParameters, {'query': 'a&b'});
@@ -288,6 +354,31 @@ void main() {
 }
 
 class _Api implements CodeApi {
+  int callLoads = 0;
+  bool failCalls = false;
+  bool emptyCalls = false;
+  @override
+  Future<CallIndex> calls(String id) async {
+    callLoads++;
+    if (failCalls) throw StateError('private-call-error');
+    return (
+      calls: emptyCalls
+          ? <CallSite>[]
+          : [
+              CallSite.fromJson({
+                'path': 'app.py',
+                'line': 4,
+                'scope': 'login',
+                'callee': '<dynamic expression>',
+                'dynamic': true,
+                'label_truncated': true,
+              }),
+            ],
+      truncated: !emptyCalls,
+      incomplete: true,
+    );
+  }
+
   String? lastRoot;
   bool failGraph = false;
   @override

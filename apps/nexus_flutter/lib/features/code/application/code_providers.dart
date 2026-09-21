@@ -51,6 +51,9 @@ final repositoryFilesProvider = FutureProvider.autoDispose
       (ref, id) => ref.watch(codeApiProvider).files(id),
     );
 typedef SearchRequest = ({String id, String query});
+final codeCallsProvider = FutureProvider.autoDispose.family<CallIndex, String>(
+  (ref, id) => ref.watch(codeApiProvider).calls(id),
+);
 typedef DependencyRequest = ({String id, String root});
 final codeDependenciesProvider = FutureProvider.autoDispose
     .family<ImportGraph, DependencyRequest>(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus_flutter/features/code/application/code_providers.dart';
+import 'package:nexus_flutter/features/code/presentation/call_sites_panel.dart';
 import 'package:nexus_flutter/features/code/presentation/dependency_panel.dart';
 
 class RepositoryScreen extends ConsumerStatefulWidget {
@@ -59,6 +60,11 @@ class _RepositoryState extends ConsumerState<RepositoryScreen> {
       children: [
         DependencyPanel(
           key: ValueKey(widget.id),
+          id: widget.id,
+          openSource: _open,
+        ),
+        CallSitesPanel(
+          key: ValueKey('calls:${widget.id}'),
           id: widget.id,
           openSource: _open,
         ),
