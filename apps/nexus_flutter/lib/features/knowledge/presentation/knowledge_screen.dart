@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexus_flutter/features/knowledge/application/knowledge_controller.dart';
 import 'package:nexus_flutter/features/knowledge/domain/knowledge_document.dart';
+import 'package:nexus_flutter/features/knowledge/presentation/upload_document_dialog.dart';
 
 class KnowledgeScreen extends ConsumerWidget {
   const KnowledgeScreen({super.key});
@@ -47,6 +48,12 @@ class KnowledgeScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 24),
+              TextButton.icon(
+                onPressed: () =>
+                    ref.read(knowledgeControllerProvider.notifier).refresh(),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh documents'),
+              ),
               OutlinedButton.icon(
                 onPressed: () => context.push('/repositories'),
                 icon: const Icon(Icons.code),
@@ -54,7 +61,10 @@ class KnowledgeScreen extends ConsumerWidget {
               ),
               state.when(
                 loading: () => const _LoadingPlaceholder(),
-                error: (err, _) => _ErrorCard(message: err.toString()),
+                error: (_, _) => const _ErrorCard(
+                  message:
+                      'Could not load documents. Use Refresh documents to retry.',
+                ),
                 data: (docs) => docs.isEmpty
                     ? const _EmptyState()
                     : _DocumentList(docs: docs),
@@ -82,74 +92,8 @@ class _UploadButton extends ConsumerWidget {
   void _showUploadDialog(BuildContext context, WidgetRef ref) {
     showDialog<void>(
       context: context,
-      builder: (_) => _UploadDialog(ref: ref),
+      builder: (_) => const UploadDocumentDialog(),
     );
-  }
-}
-
-class _UploadDialog extends StatefulWidget {
-  const _UploadDialog({required this.ref});
-
-  final WidgetRef ref;
-
-  @override
-  State<_UploadDialog> createState() => _UploadDialogState();
-}
-
-class _UploadDialogState extends State<_UploadDialog> {
-  // ignore: prefer_final_fields - mutated in setState
-  bool _uploading = false;
-  String? _error;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Upload Document'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Supported formats: PDF, TXT, Markdown, DOCX (max 20 MB).',
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _uploading ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton.icon(
-          onPressed: _uploading ? null : () => _pickAndUpload(context),
-          icon: _uploading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.upload),
-          label: const Text('Choose File'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _pickAndUpload(BuildContext context) async {
-    // On web/desktop, flutter doesn't have a built-in file picker in the std library.
-    // We use a simple text-field approach for the demo and show a snackbar.
-    // In a real production build you'd integrate file_picker package.
-    setState(() {
-      _error =
-          'File picker not bundled in this build. '
-          'Drop a file via the API at POST /api/v1/documents.';
-    });
   }
 }
 

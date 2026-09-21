@@ -37,6 +37,10 @@ class DioKnowledgeApi implements KnowledgeApi {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/v1/documents',
       data: formData,
+      options: Options(
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+      ),
     );
     return KnowledgeDocument.fromJson(response.data!);
   }
