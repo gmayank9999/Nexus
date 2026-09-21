@@ -5,6 +5,28 @@ import 'package:flutter/foundation.dart';
 
 enum DocumentStatus { pending, indexing, indexed, failed }
 
+class DocumentSource {
+  DocumentSource.fromJson(Map<String, dynamic> json)
+    : documentId = json['document_id'] as String,
+      title = json['title'] as String,
+      chunkId = json['chunk_id'] as String,
+      index = json['chunk_index'] as int,
+      count = json['chunk_count'] as int,
+      text = json['text'] as String,
+      page = json['page'] as int?,
+      section = json['section'] as String?,
+      truncated = json['truncated'] == true;
+  final String documentId;
+  final String title;
+  final String chunkId;
+  final int index;
+  final int count;
+  final String text;
+  final int? page;
+  final String? section;
+  final bool truncated;
+}
+
 @immutable
 class KnowledgeDocument {
   const KnowledgeDocument({

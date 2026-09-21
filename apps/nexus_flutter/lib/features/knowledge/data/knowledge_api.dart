@@ -5,6 +5,11 @@ import 'package:dio/dio.dart';
 import 'package:nexus_flutter/features/knowledge/domain/knowledge_document.dart';
 
 abstract class KnowledgeApi {
+  Future<DocumentSource> readSource(
+    String id, {
+    String? chunkId,
+    int index = 0,
+  });
   Future<KnowledgeDocument> uploadDocument({
     required String filename,
     required List<int> bytes,
@@ -20,6 +25,21 @@ class DioKnowledgeApi implements KnowledgeApi {
   const DioKnowledgeApi(this._dio);
 
   final Dio _dio;
+
+  @override
+  Future<DocumentSource> readSource(
+    String id, {
+    String? chunkId,
+    int index = 0,
+  }) async {
+    final query = <String, dynamic>{'chunk_index': index};
+    if (chunkId != null) query['chunk_id'] = chunkId;
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/documents/$id/source',
+      queryParameters: query,
+    );
+    return DocumentSource.fromJson(response.data!);
+  }
 
   @override
   Future<KnowledgeDocument> uploadDocument({

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexus_flutter/features/knowledge/application/knowledge_controller.dart';
 import 'package:nexus_flutter/features/knowledge/domain/knowledge_document.dart';
+import 'package:nexus_flutter/features/knowledge/presentation/document_source_dialog.dart';
 import 'package:nexus_flutter/features/knowledge/presentation/upload_document_dialog.dart';
 
 class KnowledgeScreen extends ConsumerWidget {
@@ -124,6 +125,12 @@ class _DocumentTile extends ConsumerWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: _MimeIcon(mime: doc.mimeType),
         title: Text(doc.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        onTap: doc.status == DocumentStatus.indexed
+            ? () => showDialog<void>(
+                context: context,
+                builder: (_) => DocumentSourceDialog(id: doc.id),
+              )
+            : null,
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

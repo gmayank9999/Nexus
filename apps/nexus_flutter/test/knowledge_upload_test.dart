@@ -21,6 +21,12 @@ const _doc = KnowledgeDocument(
 );
 
 class _Api implements KnowledgeApi {
+  @override
+  Future<DocumentSource> readSource(
+    String id, {
+    String? chunkId,
+    int index = 0,
+  }) async => throw UnimplementedError();
   int uploads = 0;
   bool fail = false;
   Completer<void>? pending;

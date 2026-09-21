@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nexus_flutter/features/knowledge/presentation/document_citations.dart';
 import 'package:nexus_flutter/features/missions/application/follow_up_controller.dart';
 import 'package:nexus_flutter/features/missions/application/mission_controller.dart';
 import 'package:nexus_flutter/features/missions/domain/mission_event.dart';
@@ -244,6 +245,7 @@ class _RunSummary extends StatelessWidget {
           if (run.finalResponse != null || run.errorMessage != null) ...[
             const SizedBox(height: 14),
             Text(run.finalResponse ?? run.errorMessage!),
+            DocumentCitations(events: run.events),
           ],
         ],
       ),
