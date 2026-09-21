@@ -128,6 +128,7 @@ Call sites in repo_<actual ID>
 Dependencies in repo_<actual ID>
 Dependencies in repo_<actual ID> under src
 Inspect flow in repo_<actual ID> at app.py::login
+Inspect flow in repo_<actual ID> at src/app.py::login under src
 ```
 
 Replace the placeholder with an ID returned by the first goal or import API.
@@ -257,21 +258,33 @@ duplicate qualified function names are rejected with a retryable message.
 
 The API is `GET /api/v1/repositories/{id}/flow?path=app.py&symbol=login`.
 The read-only `source_flow` agent tool accepts the same exact snapshot path and
-qualified function name, plus optional `max_depth` (0–5, default 3). Mock mode
+qualified function name, plus optional `max_depth` (0–5, default 3) and
+`source_root` (blank means ZIP root). The dialog's **Flow source root** field
+applies the same scope explicitly; changing it never guesses a project root. Mock mode
 supports `Inspect flow in repo_<actual ID> at app.py::login`, producing a bounded
 source-cited explanation and structured graph in the tool trace.
 
-Traversal follows **same-file top-level function name candidates only**. It does
-not resolve imports, closures, parameter/assignment shadowing, decorators,
-inheritance, or dynamic dispatch. A name match remains a hypothesis even when
-there is just one declaration. Attribute and dynamic calls remain unresolved;
-duplicate declarations are ambiguous. Scope attribution is lexical, including
+Traversal follows top-level function name candidates in the same file and
+through explicit module-level imports. Supported forms include `import auth`,
+`import auth as a`, `import pkg.auth`, and `from auth import verify as check`,
+including relative imports with a named module. These links remain hypotheses,
+not verified runtime bindings. Closures, parameter/assignment shadowing,
+decorators, inheritance, and dynamic dispatch are not resolved. Wildcard imports,
+function/class-local imports, re-exports, and `from . import module` are not
+followed. Attribute calls are followed only when they match a stored module
+import plus one function name; other attribute/dynamic calls remain unresolved.
+Duplicate bindings, module/package collisions, and duplicate declarations are
+ambiguous. Conditional module-level imports are still only candidates, not proof
+that an import executes. Scope attribution is lexical, including
 default/decorator expressions, not a statement about when those calls run.
 Recursive links are retained without repeatedly expanding their nodes.
 
 Graphs cap at 25 nodes and 100 edges, with depth and truncation disclosure.
-Index completeness refers to the selected file; this is not a repository-wide
-flow analysis. Older snapshots still require re-import to acquire call indexes.
+Index completeness covers the selected and inspected candidate files; this is
+not an exhaustive repository-wide flow analysis. New imports store up to 500
+import-binding records per file, including aliases and lexical scopes. Older
+snapshots require re-import to acquire binding indexes and are marked incomplete.
+The stored dependency-import list retains its existing declared-module semantics.
 All paths are immutable snapshot lookups, workspace isolation remains enforced,
 and flow missions skip automatic personal-memory extraction. No code is executed.
 
@@ -286,6 +299,13 @@ legacy indexes, workspace isolation, upload-to-mission flow, personal-memory
 exclusion, and graph-to-source navigation. Real-model, live PostgreSQL, browser
 visual QA, and native-device acceptance were not rerun.
 The release web build also passed with the existing CupertinoIcons font warning.
+
+The cross-file extension passed 187 backend tests and 66 Flutter tests, plus
+backend lint/formatting/typing and Flutter analysis. Added coverage includes
+import aliases, relative imports, cross-file cycles, ambiguity, legacy binding
+indexes, binding caps, rooted missions, and UI source-root application. Live
+model, PostgreSQL, browser visual QA, and native-device checks were not rerun.
+The updated release web build passed with the existing CupertinoIcons warning.
 
 ### Earlier slices
 
