@@ -208,7 +208,20 @@ Stored snapshots remain immutable and compatible. Snapshots imported before this
 feature need re-import to obtain call evidence; they are not silently reported
 as complete empty call indexes. Workspace isolation and the personal-memory
 extraction exclusion apply to this tool. It is available to model-selected plans
-but has no dedicated mock-mode goal fixture or Flutter call browser yet.
+but has no dedicated mock-mode goal fixture yet.
+
+In Flutter, expand **Python call sites** inside a repository and press
+**Load call sites**. Each entry opens its cited source line. Dynamic expressions,
+truncated labels, capped results, and incomplete indexes are explicitly labeled.
+An empty index is not presented as proof that the repository contains no calls.
+Loading and retries are explicit; failures do not expose raw server details.
+This is a source-evidence list, not a resolved call-flow visualization.
+
+The call-browser slice passed 64 Flutter tests, static analysis, formatting, and
+a release web build (with the existing CupertinoIcons font warning). Tests cover
+explicit loading, source navigation, dynamic/truncation/incomplete disclosures,
+empty results, retries, and API serialization. No backend code changed. Live
+browser-to-backend and native-device acceptance were not rerun.
 
 This slice passed 157 backend tests, lint, formatting, and strict typing. Tests cover lexical
 scopes, async/nested functions, dynamic expressions, source citations, budgets,
