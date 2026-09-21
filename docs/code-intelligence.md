@@ -1,8 +1,9 @@
 # Code intelligence: repository snapshot foundation
 
 Phase 7 now includes repository ingestion and a Flutter source browser.
-Read-only agent code tools and a Python declared-import graph are now registered. Call graphs and
-validated source-grounded flow explanations are not implemented yet. This milestone does
+Read-only agent code tools, a Python declared-import graph, and function-level
+candidate flow inspection are available. Fully resolved call graphs and
+validated runtime-flow explanations are not implemented yet. This milestone does
 not satisfy the full “Trace login flow” acceptance criterion.
 
 ## Import and inspect
@@ -126,6 +127,7 @@ Find symbol in repo_<actual ID> for login
 Call sites in repo_<actual ID>
 Dependencies in repo_<actual ID>
 Dependencies in repo_<actual ID> under src
+Inspect flow in repo_<actual ID> at app.py::login
 ```
 
 Replace the placeholder with an ID returned by the first goal or import API.
@@ -136,7 +138,7 @@ fixture. No code is executed and the demo does not create tasks or artifacts.
 
 Source/comments are untrusted context, not instructions or approval. Code-tool
 observations remain persisted in mission history. Runs that invoke any of these
-six tools skip automatic personal-memory extraction so repository evidence is
+seven tools skip automatic personal-memory extraction so repository evidence is
 not fed to the fact extractor. This applies to the invoking run, not arbitrary
 later goals that manually quote source or reuse follow-up excerpts. Existing
 stored memories and historical traces are not changed.
@@ -243,6 +245,47 @@ scopes, async/nested functions, dynamic expressions, source citations, budgets,
 legacy snapshots, and API/tool workspace isolation. No frontend code changed;
 real-model and live PostgreSQL checks were not rerun. Resolved call graphs and
 the full source-grounded “Trace login flow” acceptance criterion remain open.
+
+## Function-level candidate flow inspection
+
+In Flutter, expand a source file and use a Python function's **Inspect flow**
+button. The dialog groups outgoing call edges under function nodes. Click an
+edge to read its call site or use **Read candidate declaration** to inspect a
+possible target. The graph has explicit candidate, unresolved, ambiguous, and
+limit labels; it is not presented as a verified execution trace. Classes and
+duplicate qualified function names are rejected with a retryable message.
+
+The API is `GET /api/v1/repositories/{id}/flow?path=app.py&symbol=login`.
+The read-only `source_flow` agent tool accepts the same exact snapshot path and
+qualified function name, plus optional `max_depth` (0–5, default 3). Mock mode
+supports `Inspect flow in repo_<actual ID> at app.py::login`, producing a bounded
+source-cited explanation and structured graph in the tool trace.
+
+Traversal follows **same-file top-level function name candidates only**. It does
+not resolve imports, closures, parameter/assignment shadowing, decorators,
+inheritance, or dynamic dispatch. A name match remains a hypothesis even when
+there is just one declaration. Attribute and dynamic calls remain unresolved;
+duplicate declarations are ambiguous. Scope attribution is lexical, including
+default/decorator expressions, not a statement about when those calls run.
+Recursive links are retained without repeatedly expanding their nodes.
+
+Graphs cap at 25 nodes and 100 edges, with depth and truncation disclosure.
+Index completeness refers to the selected file; this is not a repository-wide
+flow analysis. Older snapshots still require re-import to acquire call indexes.
+All paths are immutable snapshot lookups, workspace isolation remains enforced,
+and flow missions skip automatic personal-memory extraction. No code is executed.
+
+The full general-language “Trace login flow” acceptance criterion remains open:
+this feature requires an explicit entry function and does not claim verified
+cross-file bindings or runtime behavior.
+
+Verification for this feature: 172 backend tests and 66 Flutter tests passed,
+along with backend lint/formatting/strict typing and Flutter analysis/formatting.
+Coverage includes branches, cycles, ambiguous names, depth/node/edge limits,
+legacy indexes, workspace isolation, upload-to-mission flow, personal-memory
+exclusion, and graph-to-source navigation. Real-model, live PostgreSQL, browser
+visual QA, and native-device acceptance were not rerun.
+The release web build also passed with the existing CupertinoIcons font warning.
 
 ### Earlier slices
 
