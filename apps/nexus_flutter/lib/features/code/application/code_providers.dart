@@ -51,6 +51,13 @@ final repositoryFilesProvider = FutureProvider.autoDispose
       (ref, id) => ref.watch(codeApiProvider).files(id),
     );
 typedef SearchRequest = ({String id, String query});
+typedef FlowRequest = ({String id, String path, String symbol});
+final codeFlowProvider = FutureProvider.autoDispose
+    .family<CodeFlow, FlowRequest>(
+      (ref, request) => ref
+          .watch(codeApiProvider)
+          .flow(request.id, request.path, request.symbol),
+    );
 final codeCallsProvider = FutureProvider.autoDispose.family<CallIndex, String>(
   (ref, id) => ref.watch(codeApiProvider).calls(id),
 );

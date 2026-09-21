@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexus_flutter/features/code/application/code_providers.dart';
 import 'package:nexus_flutter/features/code/presentation/call_sites_panel.dart';
 import 'package:nexus_flutter/features/code/presentation/dependency_panel.dart';
+import 'package:nexus_flutter/features/code/presentation/source_flow_dialog.dart';
 
 class RepositoryScreen extends ConsumerStatefulWidget {
   const RepositoryScreen({required this.id, super.key});
@@ -150,6 +151,21 @@ class _RepositoryState extends ConsumerState<RepositoryScreen> {
                             title: Text(symbol.name),
                             subtitle: Text('Line ${symbol.line}'),
                             onTap: () => _open(file.path, symbol.line),
+                            trailing: IconButton(
+                              tooltip: 'Inspect flow for ${symbol.name}',
+                              icon: const Icon(Icons.account_tree_outlined),
+                              onPressed: () => showDialog<void>(
+                                context: context,
+                                builder: (_) => SourceFlowDialog(
+                                  request: (
+                                    id: widget.id,
+                                    path: file.path,
+                                    symbol: symbol.name,
+                                  ),
+                                  openSource: _open,
+                                ),
+                              ),
+                            ),
                           ),
                       ],
                     ),

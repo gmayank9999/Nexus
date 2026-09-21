@@ -73,6 +73,40 @@ class CallSite {
 
 typedef CallIndex = ({List<CallSite> calls, bool truncated, bool incomplete});
 
+class FlowNode {
+  FlowNode.fromJson(Json json)
+    : id = json['id'] as String,
+      path = json['path'] as String,
+      name = json['name'] as String,
+      line = json['line'] as int;
+  final String id;
+  final String path;
+  final String name;
+  final int line;
+}
+
+class FlowEdge {
+  FlowEdge.fromJson(Json json)
+    : source = json['source'] as String,
+      target = json['target'] as String?,
+      callee = json['callee'] as String,
+      line = json['line'] as int,
+      resolution = json['resolution'] as String;
+  final String source;
+  final String? target;
+  final String callee;
+  final int line;
+  final String resolution;
+}
+
+typedef CodeFlow = ({
+  List<FlowNode> nodes,
+  List<FlowEdge> edges,
+  bool truncated,
+  bool incomplete,
+  String semantics,
+});
+
 class ImportEdge {
   ImportEdge.fromJson(Json json)
     : source = json['source'] as String,
@@ -112,6 +146,7 @@ abstract interface class CodeApi {
   );
   Future<FileIndex> files(String id);
   Future<CallIndex> calls(String id);
+  Future<CodeFlow> flow(String id, String path, String symbol);
   Future<ImportGraph> dependencies(String id, String root);
   Future<SearchResult> search(String id, String query);
   Future<SourceWindow> read(String id, String path, int line);
@@ -120,6 +155,32 @@ abstract interface class CodeApi {
 class DioCodeApi implements CodeApi {
   const DioCodeApi(this._dio);
   final Dio _dio;
+
+  @override
+  Future<CodeFlow> flow(String id, String path, String symbol) async {
+    final response = await _dio.get<Json>(
+      '/api/v1/repositories/$id/flow',
+      queryParameters: {'path': path, 'symbol': symbol},
+    );
+    final json = response.data!;
+    return (
+      nodes: (json['nodes'] as List<dynamic>)
+          .map(
+            (value) =>
+                FlowNode.fromJson(Map<String, dynamic>.from(value as Map)),
+          )
+          .toList(),
+      edges: (json['edges'] as List<dynamic>)
+          .map(
+            (value) =>
+                FlowEdge.fromJson(Map<String, dynamic>.from(value as Map)),
+          )
+          .toList(),
+      truncated: json['truncated'] == true,
+      incomplete: json['incomplete_index'] == true,
+      semantics: json['semantics'] as String,
+    );
+  }
 
   @override
   Future<CallIndex> calls(String id) async {

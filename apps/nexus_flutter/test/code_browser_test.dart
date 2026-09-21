@@ -13,6 +13,62 @@ import 'package:nexus_flutter/features/code/presentation/repository_screen.dart'
 import 'package:nexus_flutter/features/code/presentation/upload_repository_dialog.dart';
 
 void main() {
+  testWidgets('function flow shows candidate graph and source navigation', (
+    tester,
+  ) async {
+    final api = _Api();
+    await tester.binding.setSurfaceSize(const Size(1100, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [codeApiProvider.overrideWithValue(api)],
+        child: const MaterialApp(home: RepositoryScreen(id: 'repo_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(api.lastFlow, isNull);
+    await tester.tap(find.text('app.py'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Inspect flow for App.login'));
+    await tester.pumpAndSettle();
+    expect(api.lastFlow, (id: 'repo_1', path: 'app.py', symbol: 'App.login'));
+    expect(find.textContaining('Candidate → verify'), findsOneWidget);
+    expect(find.textContaining('Graph limited:'), findsOneWidget);
+    expect(find.textContaining('Index incomplete.'), findsOneWidget);
+    await tester.tap(find.byTooltip('Read candidate declaration'));
+    await tester.pumpAndSettle();
+    expect(api.lastRead, (id: 'repo_1', path: 'app.py', line: 12));
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('verify — line 8'));
+    await tester.pumpAndSettle();
+    expect(api.lastRead, (id: 'repo_1', path: 'app.py', line: 8));
+  });
+
+  testWidgets('flow errors retry without disclosing server details', (
+    tester,
+  ) async {
+    final api = _Api()..failFlow = true;
+    await tester.binding.setSurfaceSize(const Size(1000, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [codeApiProvider.overrideWithValue(api)],
+        child: const MaterialApp(home: RepositoryScreen(id: 'repo_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('app.py'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Inspect flow for App.login'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Could not inspect flow.'), findsOneWidget);
+    expect(find.textContaining('private-flow-error'), findsNothing);
+    api.failFlow = false;
+    await tester.tap(find.text('Retry flow'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Candidate → verify'), findsOneWidget);
+  });
   testWidgets('call sites load explicitly and open cited source', (
     tester,
   ) async {
@@ -328,6 +384,8 @@ void main() {
                         'truncated': false,
                         'incomplete_index': true,
                         'calls': <dynamic>[],
+                        'nodes': <dynamic>[],
+                        'semantics': 'Candidate graph only',
                       },
               ),
             );
@@ -346,6 +404,14 @@ void main() {
       expect(requests[3].path, '/api/v1/repositories/repo_1/calls');
       expect(calls.calls, isEmpty);
       expect(calls.incomplete, isTrue);
+      final flow = await api.flow('repo_1', 'src/app.py', 'App.login');
+      expect(requests[4].path, '/api/v1/repositories/repo_1/flow');
+      expect(requests[4].queryParameters, {
+        'path': 'src/app.py',
+        'symbol': 'App.login',
+      });
+      expect(flow.incomplete, isTrue);
+      expect(flow.semantics, 'Candidate graph only');
       expect(requests[0].data, isA<FormData>());
       expect(requests[0].queryParameters, {'name': 'Test'});
       expect(requests[1].queryParameters, {'query': 'a&b'});
@@ -354,6 +420,42 @@ void main() {
 }
 
 class _Api implements CodeApi {
+  FlowRequest? lastFlow;
+  bool failFlow = false;
+  @override
+  Future<CodeFlow> flow(String id, String path, String symbol) async {
+    lastFlow = (id: id, path: path, symbol: symbol);
+    if (failFlow) throw StateError('private-flow-error');
+    return (
+      nodes: [
+        FlowNode.fromJson({
+          'id': 'entry',
+          'name': symbol,
+          'path': path,
+          'line': 7,
+        }),
+        FlowNode.fromJson({
+          'id': 'target',
+          'name': 'verify',
+          'path': path,
+          'line': 12,
+        }),
+      ],
+      edges: [
+        FlowEdge.fromJson({
+          'source': 'entry',
+          'target': 'target',
+          'callee': 'verify',
+          'line': 8,
+          'resolution': 'same_file_name_candidate',
+        }),
+      ],
+      truncated: true,
+      incomplete: true,
+      semantics: 'Names are not verified bindings.',
+    );
+  }
+
   int callLoads = 0;
   bool failCalls = false;
   bool emptyCalls = false;
