@@ -240,6 +240,9 @@ bounded, read-only tool with workspace scoping and provenance.
 
 ## Roadmap
 
+See [current status and remaining work](docs/project-status.md) for the acceptance
+gaps and the document upload/search workflow.
+
 - **Phase 0 — Foundation:** Flutter, FastAPI, Compose, health, CI
 - **Phase 1 — Agent engine:** providers, planner, state machine, safe tools
 - **Phase 2 — Streaming UI:** events, WebSocket recovery, approval cards
