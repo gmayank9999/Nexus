@@ -32,14 +32,25 @@ void main() {
     await tester.tap(find.byTooltip('Inspect flow for App.login'));
     await tester.pumpAndSettle();
     expect(api.lastFlow, (id: 'repo_1', path: 'app.py', symbol: 'App.login'));
+    expect(api.lastFlowRoot, '');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Flow source root'),
+      'src',
+    );
+    await tester.tap(find.text('Apply flow root'));
+    await tester.pumpAndSettle();
+    expect(api.lastFlowRoot, 'src');
+    expect(find.text('Scope: src'), findsOneWidget);
     expect(find.textContaining('Candidate → verify'), findsOneWidget);
     expect(find.textContaining('Graph limited:'), findsOneWidget);
     expect(find.textContaining('Index incomplete.'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Read candidate declaration'));
     await tester.tap(find.byTooltip('Read candidate declaration'));
     await tester.pumpAndSettle();
     expect(api.lastRead, (id: 'repo_1', path: 'app.py', line: 12));
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('verify — line 8'));
     await tester.tap(find.text('verify — line 8'));
     await tester.pumpAndSettle();
     expect(api.lastRead, (id: 'repo_1', path: 'app.py', line: 8));
@@ -409,6 +420,7 @@ void main() {
       expect(requests[4].queryParameters, {
         'path': 'src/app.py',
         'symbol': 'App.login',
+        'source_root': '',
       });
       expect(flow.incomplete, isTrue);
       expect(flow.semantics, 'Candidate graph only');
@@ -421,10 +433,17 @@ void main() {
 
 class _Api implements CodeApi {
   FlowRequest? lastFlow;
+  String? lastFlowRoot;
   bool failFlow = false;
   @override
-  Future<CodeFlow> flow(String id, String path, String symbol) async {
+  Future<CodeFlow> flow(
+    String id,
+    String path,
+    String symbol, {
+    String sourceRoot = '',
+  }) async {
     lastFlow = (id: id, path: path, symbol: symbol);
+    lastFlowRoot = sourceRoot;
     if (failFlow) throw StateError('private-flow-error');
     return (
       nodes: [

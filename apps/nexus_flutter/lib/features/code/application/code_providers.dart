@@ -52,11 +52,17 @@ final repositoryFilesProvider = FutureProvider.autoDispose
     );
 typedef SearchRequest = ({String id, String query});
 typedef FlowRequest = ({String id, String path, String symbol});
+typedef RootedFlowRequest = ({FlowRequest entry, String root});
 final codeFlowProvider = FutureProvider.autoDispose
-    .family<CodeFlow, FlowRequest>(
+    .family<CodeFlow, RootedFlowRequest>(
       (ref, request) => ref
           .watch(codeApiProvider)
-          .flow(request.id, request.path, request.symbol),
+          .flow(
+            request.entry.id,
+            request.entry.path,
+            request.entry.symbol,
+            sourceRoot: request.root,
+          ),
     );
 final codeCallsProvider = FutureProvider.autoDispose.family<CallIndex, String>(
   (ref, id) => ref.watch(codeApiProvider).calls(id),

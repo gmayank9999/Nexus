@@ -146,7 +146,12 @@ abstract interface class CodeApi {
   );
   Future<FileIndex> files(String id);
   Future<CallIndex> calls(String id);
-  Future<CodeFlow> flow(String id, String path, String symbol);
+  Future<CodeFlow> flow(
+    String id,
+    String path,
+    String symbol, {
+    String sourceRoot = '',
+  });
   Future<ImportGraph> dependencies(String id, String root);
   Future<SearchResult> search(String id, String query);
   Future<SourceWindow> read(String id, String path, int line);
@@ -157,10 +162,19 @@ class DioCodeApi implements CodeApi {
   final Dio _dio;
 
   @override
-  Future<CodeFlow> flow(String id, String path, String symbol) async {
+  Future<CodeFlow> flow(
+    String id,
+    String path,
+    String symbol, {
+    String sourceRoot = '',
+  }) async {
     final response = await _dio.get<Json>(
       '/api/v1/repositories/$id/flow',
-      queryParameters: {'path': path, 'symbol': symbol},
+      queryParameters: {
+        'path': path,
+        'symbol': symbol,
+        'source_root': sourceRoot,
+      },
     );
     final json = response.data!;
     return (
