@@ -10,7 +10,7 @@ from app.providers.errors import ProviderError
 
 def _graph_request(goal: str) -> tuple[str, dict[str, object]] | None:
     flow = re.fullmatch(
-        r"inspect flow in (repo_[a-zA-Z0-9_-]+) at (.+)::(.+)",
+        r"inspect flow in (repo_[a-zA-Z0-9_-]+) at (.+)::(.+?)(?: under (.+))?",
         goal,
         flags=re.IGNORECASE,
     )
@@ -19,6 +19,7 @@ def _graph_request(goal: str) -> tuple[str, dict[str, object]] | None:
             "repository_id": flow.group(1),
             "path": flow.group(2),
             "symbol": flow.group(3),
+            "source_root": flow.group(4) or "",
         }
     match = re.fullmatch(
         r"(call sites|dependencies) in (repo_[a-zA-Z0-9_-]+)(?: under (.+))?",

@@ -13,6 +13,7 @@ from app.code.models import (
     CodeCall,
     CodeImport,
     CodeSymbol,
+    ImportBinding,
     RepositorySnapshot,
     SourceFile,
 )
@@ -148,11 +149,30 @@ def _index_python(source: SourceFile) -> None:
         source.parse_error = True
         return
     source.calls_indexed = True
+    source.bindings_indexed = True
     # Iterative traversal avoids recursion on deeply nested uploaded syntax.
     pending: list[tuple[ast.AST, str]] = [(tree, "")]
     while pending:
         node, scope = pending.pop()
         next_scope = scope
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            remaining_bindings = 500 - len(source.bindings)
+            for alias in node.names[:remaining_bindings]:
+                source.bindings.append(
+                    ImportBinding(
+                        module=(
+                            alias.name
+                            if isinstance(node, ast.Import)
+                            else "." * node.level + (node.module or "")
+                        ),
+                        binding=alias.asname or alias.name,
+                        member=alias.name if isinstance(node, ast.ImportFrom) else None,
+                        scope=scope,
+                        line=node.lineno,
+                    )
+                )
+            if len(node.names) > remaining_bindings:
+                source.bindings_truncated = True
         if isinstance(node, ast.Call):
             if len(source.calls) < 500:
                 callee, dynamic, truncated = _callee_label(node.func)

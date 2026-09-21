@@ -46,6 +46,7 @@ class SourceFlowInput(RepositoryInput):
     path: str = Field(min_length=1, max_length=300)
     symbol: str = Field(min_length=1, max_length=300)
     max_depth: int = Field(default=3, ge=0, le=5)
+    source_root: str = Field(default="", max_length=300)
 
 
 class _RepositoryTool(Tool):
@@ -130,9 +131,10 @@ class SourceFlowTool(_RepositoryTool):
     name = "source_flow"
     description = (
         "Inspect a Python function by exact snapshot path and qualified symbol name. "
-        "Returns a graph of lexical calls and unverified same-file top-level name "
+        "Returns a graph of lexical calls and unverified local/imported name "
         "candidates, NOT resolved bindings or runtime execution. At most 25 nodes, "
-        "100 edges, depth 0-5. Cite locations and disclose unresolved/limited links."
+        "100 edges, depth 0-5. Set source_root for ZIP wrappers/src layouts. "
+        "Cite locations and disclose unresolved/limited links."
     )
     input_schema = SourceFlowInput
 
@@ -145,7 +147,11 @@ class SourceFlowTool(_RepositoryTool):
         snapshot = await self._snapshot(parsed.repository_id, context)
         try:
             return source_flow(
-                snapshot, parsed.path, parsed.symbol, parsed.max_depth
+                snapshot,
+                parsed.path,
+                parsed.symbol,
+                parsed.max_depth,
+                parsed.source_root,
             ).model_dump(mode="json")
         except LookupError as error:
             raise ToolError(

@@ -25,6 +25,14 @@ class CodeCall(BaseModel):
     label_truncated: bool = False
 
 
+class ImportBinding(BaseModel):
+    module: str
+    binding: str
+    member: str | None = None
+    scope: str
+    line: int
+
+
 class SourceFile(BaseModel):
     path: str
     language: str
@@ -35,6 +43,9 @@ class SourceFile(BaseModel):
     calls: list[CodeCall] = Field(default_factory=list)
     calls_indexed: bool = False
     calls_truncated: bool = False
+    bindings: list[ImportBinding] = Field(default_factory=list)
+    bindings_indexed: bool = False
+    bindings_truncated: bool = False
     parse_error: bool = False
     index_truncated: bool = False
 

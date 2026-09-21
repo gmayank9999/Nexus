@@ -24,11 +24,12 @@ async def get_flow(
     path: Annotated[str, Query(min_length=1, max_length=300)],
     symbol: Annotated[str, Query(min_length=1, max_length=300)],
     max_depth: Annotated[int, Query(ge=0, le=5)] = 3,
+    source_root: Annotated[str, Query(max_length=300)] = "",
     user_id: Workspace = "local",
 ) -> SourceFlow:
     snapshot = await _require(repository_id, resources, user_id)
     try:
-        return source_flow(snapshot, path, symbol, max_depth)
+        return source_flow(snapshot, path, symbol, max_depth, source_root)
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:

@@ -1,10 +1,11 @@
-"""Bounded navigation of lexical calls and same-file declaration candidates."""
+"""Bounded navigation of lexical calls and local/imported declaration candidates."""
 
 from collections import deque
 
 from pydantic import BaseModel, Field
 
-from app.code.models import CodeSymbol, RepositorySnapshot
+from app.code.flow_links import declaration_candidates, flow_sources, partial
+from app.code.models import CodeSymbol, RepositorySnapshot, SourceFile
 
 MAX_NODES = 25
 MAX_EDGES = 100
@@ -36,8 +37,10 @@ class SourceFlow(BaseModel):
     truncated: bool = False
     incomplete_index: bool = False
     max_depth: int
+    source_root: str = ""
     semantics: str = (
-        "Lexical call evidence with same-file top-level function name candidates. "
+        "Lexical call evidence with local and explicitly imported function "
+        "name candidates. "
         "Candidate links are NOT verified bindings, execution order, or runtime paths. "
         "Parameters, assignments, imports, decorators, and dynamic dispatch can change "
         "targets. Defaults and decorators may execute outside their lexical scope."
@@ -49,10 +52,12 @@ def source_flow(
     path: str,
     symbol: str,
     max_depth: int = 3,
+    source_root: str = "",
 ) -> SourceFlow:
     if not 0 <= max_depth <= 5:
         raise ValueError("Depth must be between 0 and 5.")
-    source = next((file for file in snapshot.files if file.path == path), None)
+    files = flow_sources(snapshot.files, source_root)
+    source = files.get(path)
     if source is None:
         raise LookupError("Source file not found.")
     entries = [
@@ -66,70 +71,72 @@ def source_flow(
     if len(entry.name) > 300:
         raise ValueError("Function name exceeds the supported 300 characters.")
 
-    def node(item: CodeSymbol) -> FlowNode:
+    def node(file: SourceFile, item: CodeSymbol) -> FlowNode:
         return FlowNode(
-            id=f"{source.path}:{item.line}",
-            path=source.path,
+            id=f"{file.path}:{item.line}",
+            path=file.path,
             name=item.name,
             line=item.line,
             end_line=item.end_line,
-            sha256=source.sha256,
+            sha256=file.sha256,
         )
 
-    root = node(entry)
+    root = node(source, entry)
     result = SourceFlow(
         repository_id=snapshot.id,
         entry=root.id,
         nodes=[root],
         max_depth=max_depth,
-        incomplete_index=(
-            not source.calls_indexed
-            or source.parse_error
-            or source.index_truncated
-            or source.calls_truncated
-        ),
+        source_root=source_root,
+        incomplete_index=partial(source),
     )
-    candidates: dict[str, list[CodeSymbol]] = {}
-    for item in source.symbols:
-        if item.kind == "function" and "." not in item.name:
-            candidates.setdefault(item.name, []).append(item)
-    pending = deque([(entry, 0)])
+    pending = deque([(source, entry, 0)])
     visited = {root.id}
     while pending:
-        current, depth = pending.popleft()
-        for call in source.calls:
+        current_file, current, depth = pending.popleft()
+        result.incomplete_index = result.incomplete_index or partial(current_file)
+        for call in current_file.calls:
             if call.scope != current.name:
                 continue
             if len(result.edges) == MAX_EDGES:
                 result.truncated = True
                 return result
             edge = FlowEdge(
-                source=node(current).id,
+                source=node(current_file, current).id,
                 callee=call.callee,
                 line=call.line,
                 column=call.column,
                 resolution="unresolved",
             )
-            matches = candidates.get(call.callee, [])
+            matches, resolution, incomplete = declaration_candidates(
+                current_file,
+                call.callee,
+                files,
+                source_root,
+            )
+            result.incomplete_index = result.incomplete_index or incomplete
             if call.label_truncated:
                 edge.resolution = "truncated_label"
-            elif call.dynamic or "." in call.callee:
+            elif call.dynamic:
                 edge.resolution = "dynamic_or_attribute"
             elif len(matches) > 1:
                 edge.resolution = "ambiguous_declaration"
             elif len(matches) == 1:
-                target = node(matches[0])
+                target_file, target_symbol = matches[0]
+                target = node(target_file, target_symbol)
                 if target.id in visited:
                     edge.target = target.id
-                    edge.resolution = "same_file_name_candidate"
+                    edge.resolution = resolution
                 elif depth >= max_depth or len(visited) == MAX_NODES:
                     edge.resolution = "expansion_limit"
                     result.truncated = True
                 else:
                     edge.target = target.id
-                    edge.resolution = "same_file_name_candidate"
+                    edge.resolution = resolution
                     visited.add(target.id)
                     result.nodes.append(target)
-                    pending.append((matches[0], depth + 1))
+                    pending.append((target_file, target_symbol, depth + 1))
+            else:
+                edge.resolution = resolution
             result.edges.append(edge)
     return result
