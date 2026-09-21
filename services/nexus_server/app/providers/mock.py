@@ -8,6 +8,23 @@ from app.providers.base import LLMResponse, Message, ToolDefinition
 from app.providers.errors import ProviderError
 
 
+def _graph_request(goal: str) -> tuple[str, dict[str, object]] | None:
+    match = re.fullmatch(
+        r"(call sites|dependencies) in (repo_[a-zA-Z0-9_-]+)(?: under (.+))?",
+        goal,
+        flags=re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    calls = match.group(1).lower() == "call sites"
+    if calls and match.group(3) is not None:
+        return None
+    arguments: dict[str, object] = {"repository_id": match.group(2)}
+    if not calls:
+        arguments["source_root"] = match.group(3) or ""
+    return ("call_sites" if calls else "dependency_graph", arguments)
+
+
 class MockProvider:
     """Deterministic provider used by tests, CI, and local demo mode."""
 
@@ -62,6 +79,19 @@ class MockProvider:
     def _plan(payload: dict[str, object]) -> dict[str, object]:
         goal = str(payload.get("goal", "Complete the goal"))
         lowered = goal.lower()
+        graph_request = _graph_request(goal)
+        if graph_request is not None:
+            return {
+                "goal": goal,
+                "steps": [
+                    {
+                        "id": "step_1",
+                        "title": "Inspect source evidence",
+                        "description": goal,
+                        "tool": graph_request[0],
+                    }
+                ],
+            }
         code_match = re.fullmatch(
             r"(search code|find symbol) in (repo_[a-zA-Z0-9_-]+) for (.+)",
             goal,
@@ -161,7 +191,15 @@ class MockProvider:
         step_data = step if isinstance(step, dict) else {}
         tool = str(step_data.get("tool", "create_task"))
         arguments: dict[str, object]
-        if tool == "list_repositories":
+        if tool in {"call_sites", "dependency_graph"}:
+            graph_request = _graph_request(goal)
+            if graph_request is None or graph_request[0] != tool:
+                return {
+                    "action": "respond",
+                    "content": "Mock source demo requires an explicit repository ID.",
+                }
+            arguments = graph_request[1]
+        elif tool == "list_repositories":
             arguments = {}
         elif tool in {"search_code", "find_symbol"}:
             match = re.fullmatch(

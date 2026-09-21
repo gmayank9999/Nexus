@@ -168,7 +168,18 @@ async def test_mock_code_mission_cites_uploaded_source() -> None:
         assert (await client.get("/api/v1/tasks")).json() == []
 
 
-async def test_code_mission_skips_automatic_personal_memory_extraction() -> None:
+@pytest.mark.parametrize(
+    "goal,tool",
+    [
+        ("Search code in {id} for private", "search_code"),
+        ("Call sites in {id}", "call_sites"),
+        ("Dependencies in {id}", "dependency_graph"),
+    ],
+)
+async def test_code_mission_skips_automatic_personal_memory_extraction(
+    goal: str,
+    tool: str,
+) -> None:
     tools, repository_id = await tools_for(
         {"app.py": "# private implementation detail"}
     )
@@ -184,12 +195,12 @@ async def test_code_mission_skips_automatic_personal_memory_extraction() -> None
     )
     try:
         run = await runtime.start(
-            f"Search code in {repository_id} for private",
+            goal.format(id=repository_id),
             user_id="local",
             max_iterations=12,
         )
         assert run.status == "completed"
-        assert run.context.observations[0].tool == "search_code"
+        assert run.context.observations[0].tool == tool
         extractor.extract_and_save.assert_not_called()
     finally:
         await runtime.close()
