@@ -43,6 +43,15 @@ class DocumentRepository(ABC):
     async def get_chunks(self, doc_id: str) -> list[DocumentChunk]: ...
 
     @abstractmethod
+    async def get_chunk(
+        self,
+        doc_id: str,
+        *,
+        chunk_id: str | None = None,
+        index: int = 0,
+    ) -> DocumentChunk | None: ...
+
+    @abstractmethod
     async def search(
         self,
         user_id: str,
@@ -100,6 +109,26 @@ class InMemoryDocumentRepository(DocumentRepository):
     async def get_chunks(self, doc_id: str) -> list[DocumentChunk]:
         return self._chunks.get(doc_id, [])
 
+    async def get_chunk(
+        self,
+        doc_id: str,
+        *,
+        chunk_id: str | None = None,
+        index: int = 0,
+    ) -> DocumentChunk | None:
+        return next(
+            (
+                chunk
+                for chunk in self._chunks.get(doc_id, [])
+                if (
+                    chunk.id == chunk_id
+                    if chunk_id is not None
+                    else chunk.index == index
+                )
+            ),
+            None,
+        )
+
     async def search(
         self,
         user_id: str,
@@ -142,6 +171,43 @@ class SqlDocumentRepository(DocumentRepository):
 
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
+
+    async def get_chunk(
+        self,
+        doc_id: str,
+        *,
+        chunk_id: str | None = None,
+        index: int = 0,
+    ) -> DocumentChunk | None:
+        async with self._engine.connect() as conn:
+            rows = await conn.execute(
+                select(
+                    document_chunks.c.id,
+                    document_chunks.c.document_id,
+                    document_chunks.c.chunk_index,
+                    document_chunks.c.text,
+                    document_chunks.c.page,
+                    document_chunks.c.section,
+                )
+                .where(
+                    document_chunks.c.document_id == doc_id,
+                    document_chunks.c.id == chunk_id
+                    if chunk_id is not None
+                    else document_chunks.c.chunk_index == index,
+                )
+                .limit(1)
+            )
+            row = rows.first()
+            if row is None:
+                return None
+            return DocumentChunk(
+                id=row.id,
+                document_id=row.document_id,
+                index=row.chunk_index,
+                text=row.text,
+                page=row.page,
+                section=row.section,
+            )
 
     async def create(self, doc: Document) -> None:
         async with self._engine.begin() as conn:
@@ -261,7 +327,7 @@ class SqlDocumentRepository(DocumentRepository):
         async with self._engine.connect() as conn:
             rows = await conn.execute(
                 select(
-                    documents.c.id,
+                    documents.c.id.label("doc_id"),
                     documents.c.data,
                     document_chunks,
                 )

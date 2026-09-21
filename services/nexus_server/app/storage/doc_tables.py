@@ -1,6 +1,7 @@
 """SQLAlchemy table definitions for document storage."""
 
 from sqlalchemy import (
+    JSON,
     Column,
     DateTime,
     Index,
@@ -20,7 +21,7 @@ documents = Table(
     doc_metadata,
     Column("id", String(80), primary_key=True),
     Column("user_id", String(100), nullable=False),
-    Column("data", JSONB, nullable=False),
+    Column("data", JSON().with_variant(JSONB, "postgresql"), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
 Index("ix_documents_user", documents.c.user_id)

@@ -40,6 +40,15 @@ async def test_documents_share_mission_workspace_and_citations() -> None:
         assert run["status"] == "completed"
         assert "Nexus assistant" in run["final_response"]
         assert doc_id in run["final_response"] and "chunk " in run["final_response"]
+        match = run["context"]["observations"][0]["output"]["matches"][0]
+        source = await client.get(
+            f"/api/v1/documents/{doc_id}/source", params={"chunk_id": match["chunk_id"]}
+        )
+        assert source.status_code == 200
+        assert source.json()["text"] == "Flutter project: Nexus assistant."
+        assert (
+            await client.get(f"/api/v1/documents/{doc_id}/source?chunk_index=-1")
+        ).status_code == 422
         assert (await client.get("/api/v1/tasks")).json() == []
 
 

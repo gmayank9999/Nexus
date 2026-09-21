@@ -41,6 +41,49 @@ class DocumentResponse(BaseModel):
         )
 
 
+class DocumentSource(BaseModel):
+    document_id: str
+    title: str
+    chunk_id: str
+    chunk_index: int
+    chunk_count: int
+    text: str
+    page: int | None
+    section: str | None
+    truncated: bool
+
+
+@router.get("/{doc_id}/source")
+async def read_document_source(
+    doc_id: str,
+    resources: Annotated[AppResources, Depends(get_resources)],
+    chunk_id: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
+    chunk_index: Annotated[int, Query(ge=0)] = 0,
+    user_id: Workspace = "local",
+) -> DocumentSource:
+    doc = await resources.doc_repository.get(doc_id)
+    if doc is None or doc.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if doc.status != "indexed":
+        raise HTTPException(status_code=409, detail="Document is not indexed")
+    chunk = await resources.doc_repository.get_chunk(
+        doc_id, chunk_id=chunk_id, index=chunk_index
+    )
+    if chunk is None:
+        raise HTTPException(status_code=404, detail="Source chunk not found")
+    return DocumentSource(
+        document_id=doc.id,
+        title=doc.title,
+        chunk_id=chunk.id,
+        chunk_index=chunk.index,
+        chunk_count=doc.chunk_count,
+        text=chunk.text[:20000],
+        page=chunk.page,
+        section=chunk.section[:200] if chunk.section else None,
+        truncated=len(chunk.text) > 20000,
+    )
+
+
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     file: Annotated[UploadFile, File()],
