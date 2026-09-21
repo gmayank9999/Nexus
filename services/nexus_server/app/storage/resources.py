@@ -63,6 +63,7 @@ from app.tools.code import (
     ListRepositoriesTool,
     ReadFileTool,
     SearchCodeTool,
+    SourceFlowTool,
 )
 from app.tools.create_artifact import CreateArtifactTool
 from app.tools.current_time import CurrentTimeTool
@@ -154,6 +155,7 @@ class AppResources:
         tool_registry.register(SearchCodeTool(code_repository))
         tool_registry.register(DependencyGraphTool(code_repository))
         tool_registry.register(CallSitesTool(code_repository))
+        tool_registry.register(SourceFlowTool(code_repository))
         tool_registry.register(ReadFileTool(code_repository))
         tool_registry.register(FindSymbolTool(code_repository))
         agent_runtime = AgentRuntime(

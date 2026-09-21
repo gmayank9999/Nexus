@@ -9,6 +9,17 @@ from app.providers.errors import ProviderError
 
 
 def _graph_request(goal: str) -> tuple[str, dict[str, object]] | None:
+    flow = re.fullmatch(
+        r"inspect flow in (repo_[a-zA-Z0-9_-]+) at (.+)::(.+)",
+        goal,
+        flags=re.IGNORECASE,
+    )
+    if flow:
+        return "source_flow", {
+            "repository_id": flow.group(1),
+            "path": flow.group(2),
+            "symbol": flow.group(3),
+        }
     match = re.fullmatch(
         r"(call sites|dependencies) in (repo_[a-zA-Z0-9_-]+)(?: under (.+))?",
         goal,
@@ -191,7 +202,7 @@ class MockProvider:
         step_data = step if isinstance(step, dict) else {}
         tool = str(step_data.get("tool", "create_task"))
         arguments: dict[str, object]
-        if tool in {"call_sites", "dependency_graph"}:
+        if tool in {"call_sites", "dependency_graph", "source_flow"}:
             graph_request = _graph_request(goal)
             if graph_request is None or graph_request[0] != tool:
                 return {

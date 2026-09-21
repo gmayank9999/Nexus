@@ -19,6 +19,7 @@ from app.tools.code import (
     ListRepositoriesTool,
     ReadFileTool,
     SearchCodeTool,
+    SourceFlowTool,
 )
 from app.tools.registry import ToolRegistry
 from tests.test_code import archive, index
@@ -37,6 +38,7 @@ async def tools_for(files: dict[str, str]):
         FindSymbolTool,
         DependencyGraphTool,
         CallSitesTool,
+        SourceFlowTool,
     ]:
         tools.register(tool(repository))
     return tools, snapshot.id
@@ -75,6 +77,7 @@ async def test_tools_return_cited_read_only_evidence() -> None:
         ("read_file", {"path": "app.py"}),
         ("dependency_graph", {}),
         ("call_sites", {}),
+        ("source_flow", {"path": "app.py", "symbol": "login"}),
     ],
 )
 async def test_other_workspace_and_missing_snapshot_match(
@@ -174,6 +177,7 @@ async def test_mock_code_mission_cites_uploaded_source() -> None:
         ("Search code in {id} for private", "search_code"),
         ("Call sites in {id}", "call_sites"),
         ("Dependencies in {id}", "dependency_graph"),
+        ("Inspect flow in {id} at app.py::login", "source_flow"),
     ],
 )
 async def test_code_mission_skips_automatic_personal_memory_extraction(
@@ -181,7 +185,7 @@ async def test_code_mission_skips_automatic_personal_memory_extraction(
     tool: str,
 ) -> None:
     tools, repository_id = await tools_for(
-        {"app.py": "# private implementation detail"}
+        {"app.py": "# private implementation detail\ndef login(): pass"}
     )
     provider = MockProvider()
     extractor = AsyncMock(spec=MemoryExtractor)

@@ -5,6 +5,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.code.calls import call_sites
+from app.code.flow import source_flow
 from app.code.graph import dependency_graph
 from app.code.models import RepositorySnapshot
 from app.code.repository import CodeRepository
@@ -39,6 +40,12 @@ class ReadFileInput(RepositoryInput):
 
 class DependencyGraphInput(RepositoryInput):
     source_root: str = Field(default="", max_length=300)
+
+
+class SourceFlowInput(RepositoryInput):
+    path: str = Field(min_length=1, max_length=300)
+    symbol: str = Field(min_length=1, max_length=300)
+    max_depth: int = Field(default=3, ge=0, le=5)
 
 
 class _RepositoryTool(Tool):
@@ -117,6 +124,35 @@ class CallSitesTool(_RepositoryTool):
         parsed = RepositoryInput.model_validate(arguments)
         snapshot = await self._snapshot(parsed.repository_id, context)
         return call_sites(snapshot).model_dump(mode="json")
+
+
+class SourceFlowTool(_RepositoryTool):
+    name = "source_flow"
+    description = (
+        "Inspect a Python function by exact snapshot path and qualified symbol name. "
+        "Returns a graph of lexical calls and unverified same-file top-level name "
+        "candidates, NOT resolved bindings or runtime execution. At most 25 nodes, "
+        "100 edges, depth 0-5. Cite locations and disclose unresolved/limited links."
+    )
+    input_schema = SourceFlowInput
+
+    async def execute(
+        self,
+        arguments: BaseModel,
+        context: ToolContext,
+    ) -> dict[str, Any]:
+        parsed = SourceFlowInput.model_validate(arguments)
+        snapshot = await self._snapshot(parsed.repository_id, context)
+        try:
+            return source_flow(
+                snapshot, parsed.path, parsed.symbol, parsed.max_depth
+            ).model_dump(mode="json")
+        except LookupError as error:
+            raise ToolError(
+                "SOURCE_FILE_NOT_FOUND", str(error), retryable=True
+            ) from error
+        except ValueError as error:
+            raise ToolError("INVALID_FLOW_ENTRY", str(error), retryable=True) from error
 
 
 class SearchCodeTool(_RepositoryTool):

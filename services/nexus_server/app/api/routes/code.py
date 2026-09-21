@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 from app.code.calls import CallSites, call_sites
+from app.code.flow import SourceFlow, source_flow
 from app.code.graph import DependencyGraph, dependency_graph
 from app.code.indexer import MAX_ARCHIVE_BYTES, RepositoryImportError, index_archive
 from app.code.models import RepositorySnapshot, RepositorySummary
@@ -14,6 +15,24 @@ from app.storage.resources import AppResources
 router = APIRouter(prefix="/repositories", tags=["code"])
 Workspace = Annotated[str, Query(min_length=1, max_length=100)]
 Resources = Annotated[AppResources, Depends(get_resources)]
+
+
+@router.get("/{repository_id}/flow")
+async def get_flow(
+    repository_id: str,
+    resources: Resources,
+    path: Annotated[str, Query(min_length=1, max_length=300)],
+    symbol: Annotated[str, Query(min_length=1, max_length=300)],
+    max_depth: Annotated[int, Query(ge=0, le=5)] = 3,
+    user_id: Workspace = "local",
+) -> SourceFlow:
+    snapshot = await _require(repository_id, resources, user_id)
+    try:
+        return source_flow(snapshot, path, symbol, max_depth)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @router.get("/{repository_id}/calls")

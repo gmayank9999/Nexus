@@ -407,6 +407,7 @@ class AgentRuntime:
                 "find_symbol",
                 "dependency_graph",
                 "call_sites",
+                "source_flow",
             }
             for observation in run.context.observations
         )
@@ -509,6 +510,37 @@ class AgentRuntime:
                 + (
                     "\nSymbol index is incomplete."
                     if last.output.get("incomplete_index")
+                    else ""
+                )
+            )
+        if last.tool == "source_flow":
+            nodes = {node["id"]: node for node in last.output["nodes"]}
+            lines = []
+            for edge in last.output["edges"][:20]:
+                source = nodes[edge["source"]]
+                target = nodes.get(edge["target"])
+                label = (
+                    f"possible declaration {target['path']}:{target['line']}"
+                    if target
+                    else edge["resolution"]
+                )
+                lines.append(
+                    f"- {source['path']}:{edge['line']} [{source['name']}] "
+                    f"calls {edge['callee']} -> {label}"
+                )
+            return (
+                f"Source flow evidence from {last.output['repository_id']}:\n"
+                + str(last.output["semantics"])
+                + "\n"
+                + ("\n".join(lines) or "No indexed calls for this function.")
+                + (
+                    "\nResults bounded; inspect graph in the tool trace."
+                    if last.output["truncated"] or len(last.output["edges"]) > 20
+                    else ""
+                )
+                + (
+                    "\nIndex incomplete; older snapshots need re-import."
+                    if last.output["incomplete_index"]
                     else ""
                 )
             )
